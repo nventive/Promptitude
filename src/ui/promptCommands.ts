@@ -26,8 +26,8 @@ export class PromptCommandManager {
             this.refreshPrompts();
         });
 
-        const toggleSelectionCommand = vscode.commands.registerCommand('prompts.toggleSelection', (item: PromptTreeItem | PromptInfo) => {
-            this.toggleSelection(item);
+        const toggleSelectionCommand = vscode.commands.registerCommand('prompts.toggleSelection', async (item: PromptTreeItem | PromptInfo) => {
+            await this.toggleSelection(item);
         });
 
         const selectAllCommand = vscode.commands.registerCommand('prompts.selectAll', () => {
@@ -39,20 +39,20 @@ export class PromptCommandManager {
         });
 
         // Prompt action commands
-        const editPromptCommand = vscode.commands.registerCommand('prompts.editPrompt', (item: PromptTreeItem | PromptInfo) => {
-            this.editPrompt(item);
+        const editPromptCommand = vscode.commands.registerCommand('prompts.editPrompt', async (item: PromptTreeItem | PromptInfo) => {
+            await this.editPrompt(item);
         });
 
-        const viewPromptCommand = vscode.commands.registerCommand('prompts.viewPrompt', (item: PromptTreeItem | PromptInfo) => {
-            this.viewPrompt(item);
+        const viewPromptCommand = vscode.commands.registerCommand('prompts.viewPrompt', async (item: PromptTreeItem | PromptInfo) => {
+            await this.viewPrompt(item);
         });
 
-        const deletePromptCommand = vscode.commands.registerCommand('prompts.deletePrompt', (item: PromptTreeItem | PromptInfo) => {
-            this.deletePrompt(item);
+        const deletePromptCommand = vscode.commands.registerCommand('prompts.deletePrompt', async (item: PromptTreeItem | PromptInfo) => {
+            await this.deletePrompt(item);
         });
 
-        const duplicatePromptCommand = vscode.commands.registerCommand('prompts.duplicatePrompt', (item: PromptTreeItem | PromptInfo) => {
-            this.duplicatePrompt(item);
+        const duplicatePromptCommand = vscode.commands.registerCommand('prompts.duplicatePrompt', async (item: PromptTreeItem | PromptInfo) => {
+            await this.duplicatePrompt(item);
         });
 
         // Settings command
@@ -92,42 +92,88 @@ export class PromptCommandManager {
             }
 
             this.logger.info(`Toggling selection for: ${promptInfo.name}, current active: ${promptInfo.active}, repositoryUrl: ${promptInfo.repositoryUrl || 'none'}`);
+            this.logger.debug(`Prompt info details - path: ${promptInfo.path}, workspaceName: ${promptInfo.workspaceName || 'none'}`);
 
-            // Toggle the selection in the tree provider first
+            // Store the current state before toggling
+            const wasActive = promptInfo.active;
+            this.logger.debug(`State before toggle: wasActive = ${wasActive}`);
+
+            // Toggle the selection in the tree provider first (optimistic update)
             this.treeProvider.toggleSelection(promptInfo);
-            this.webviewProvider.updateSelectionStatus(promptInfo);
-            
+            this.logger.debug(`State after toggle: promptInfo.active = ${promptInfo.active}`);
+
             // Handle symlink creation/removal if SyncManager is available
             if (this.syncManager) {
+                this.logger.debug(`SyncManager is available, proceeding with file operations`);
                 if (promptInfo.active) {
                     // Prompt was activated - create symlink
                     const repositoryUrl = promptInfo.repositoryUrl;
                     if (repositoryUrl) {
                         this.logger.info(`Activating prompt: ${promptInfo.name} with URL: ${repositoryUrl}`);
-                        await this.syncManager.activatePrompt(promptInfo.name, repositoryUrl);
-                        this.logger.info(`Successfully created symlink for activated prompt: ${promptInfo.name}`);
-                        vscode.window.showInformationMessage(`✅ Activated prompt: ${promptInfo.name}`);
+
+                        // Show immediate feedback
+                        const activatingMsg = vscode.window.setStatusBarMessage(`$(sync~spin) Activating prompt: ${promptInfo.name}...`);
+
+                        try {
+                            const actualWorkspaceName = await this.syncManager.activatePrompt(promptInfo.name, repositoryUrl);
+                            // Update the workspace name in the prompt info
+                            if (actualWorkspaceName !== promptInfo.name) {
+                                promptInfo.workspaceName = actualWorkspaceName;
+                                // Update the path to reflect the actual workspace filename
+                                const promptsDir = this.config.getPromptsDirectory();
+                                promptInfo.path = this.fileSystem.joinPath(promptsDir, actualWorkspaceName);
+                            }
+                            this.logger.info(`Successfully created symlink/copy for activated prompt: ${promptInfo.name} as ${actualWorkspaceName}`);
+                            activatingMsg.dispose();
+
+                            // File operation succeeded - refresh tree and update webview
+                            this.treeProvider.refresh();
+                            this.webviewProvider.updateSelectionStatus(promptInfo);
+                            vscode.window.showInformationMessage(`✅ Activated prompt: ${promptInfo.name}`);
+                        } catch (activationError) {
+                            activatingMsg.dispose();
+                            // Revert the toggle since activation failed
+                            this.treeProvider.toggleSelection(promptInfo);
+                            this.webviewProvider.updateSelectionStatus(promptInfo);
+                            throw activationError;
+                        }
                     } else {
                         const errorMsg = `No repository URL found for prompt: ${promptInfo.name}. Cannot create symlink.`;
                         this.logger.error(errorMsg);
                         vscode.window.showErrorMessage(errorMsg);
                         // Revert the toggle since we couldn't create the symlink
                         this.treeProvider.toggleSelection(promptInfo);
+                        this.webviewProvider.updateSelectionStatus(promptInfo);
                     }
                 } else {
                     // Prompt was deactivated - remove symlink
-                    this.logger.info(`Deactivating prompt: ${promptInfo.name}`);
-                    await this.syncManager.deactivatePrompt(promptInfo.name);
-                    this.logger.info(`Successfully removed symlink for deactivated prompt: ${promptInfo.name}`);
-                    vscode.window.showInformationMessage(`✅ Deactivated prompt: ${promptInfo.name}`);
+                    // Use workspaceName if available, otherwise fall back to name
+                    const nameToDeactivate = promptInfo.workspaceName || promptInfo.name;
+                    this.logger.info(`Deactivating prompt: ${nameToDeactivate}`);
+
+                    try {
+                        await this.syncManager.deactivatePrompt(nameToDeactivate);
+                        this.logger.info(`Successfully removed symlink/copy for deactivated prompt: ${nameToDeactivate}`);
+
+                        // File operation succeeded - refresh tree and update webview
+                        this.treeProvider.refresh();
+                        this.webviewProvider.updateSelectionStatus(promptInfo);
+                        vscode.window.showInformationMessage(`✅ Deactivated prompt: ${promptInfo.name}`);
+                    } catch (deactivationError) {
+                        // Revert the toggle since deactivation failed
+                        this.treeProvider.toggleSelection(promptInfo);
+                        this.webviewProvider.updateSelectionStatus(promptInfo);
+                        throw deactivationError;
+                    }
                 }
             } else {
                 this.logger.error('SyncManager not available - cannot create/remove symlinks');
                 vscode.window.showErrorMessage('SyncManager not available');
                 // Revert the toggle
                 this.treeProvider.toggleSelection(promptInfo);
+                this.webviewProvider.updateSelectionStatus(promptInfo);
             }
-            
+
             const status = promptInfo.active ? 'activated' : 'deactivated';
             this.logger.info(`Prompt ${promptInfo.name} ${status}`);
         } catch (error) {
@@ -162,12 +208,12 @@ export class PromptCommandManager {
         try {
             // Get all currently selected prompts before deselecting
             const selected = [...this.treeProvider.getSelectedPrompts()];
-            
+
             // Deactivate each prompt using toggleSelection to ensure symlinks are removed
             for (const prompt of selected) {
                 await this.toggleSelection(prompt);
             }
-            
+
             vscode.window.showInformationMessage('All prompts deactivated');
             this.logger.debug('Deactivated all prompts');
         } catch (error) {
@@ -227,7 +273,7 @@ export class PromptCommandManager {
                 await vscode.workspace.fs.delete(vscode.Uri.file(promptInfo.path));
                 this.treeProvider.refresh();
                 this.webviewProvider.clearPrompt();
-                
+
                 vscode.window.showInformationMessage(`Prompt "${promptInfo.name}" deleted successfully`);
                 this.logger.debug(`Deleted prompt: ${promptInfo.name}`);
             }
@@ -249,7 +295,7 @@ export class PromptCommandManager {
             const baseName = promptInfo.name.replace(/\.[^/.]+$/, '');
             const extension = promptInfo.name.substring(baseName.length);
             let newName = `${baseName}_copy${extension}`;
-            
+
             // Ensure unique filename
             const promptsDir = this.config.getPromptsDirectory();
             let counter = 1;
@@ -259,14 +305,14 @@ export class PromptCommandManager {
             }
 
             const newPath = this.fileSystem.joinPath(promptsDir, newName);
-            
+
             // Copy content
             const content = await this.fileSystem.readFileContent(promptInfo.path);
             await this.fileSystem.writeFileContent(newPath, content);
-            
+
             // Refresh tree view
             this.treeProvider.refresh();
-            
+
             vscode.window.showInformationMessage(`Prompt duplicated as "${newName}"`);
             this.logger.debug(`Duplicated prompt ${promptInfo.name} as ${newName}`);
         } catch (error) {
@@ -289,11 +335,11 @@ export class PromptCommandManager {
         if ('promptInfo' in item) {
             return item.promptInfo;
         }
-        
+
         if ('name' in item && 'path' in item && 'type' in item) {
             return item as PromptInfo;
         }
-        
+
         return undefined;
     }
 
@@ -301,7 +347,7 @@ export class PromptCommandManager {
     async deleteSelectedPrompts(): Promise<void> {
         try {
             const selectedPrompts = this.treeProvider.getSelectedPrompts();
-            
+
             if (selectedPrompts.length === 0) {
                 vscode.window.showInformationMessage('No active prompts to delete');
                 return;
@@ -349,7 +395,7 @@ export class PromptCommandManager {
     async exportSelectedPrompts(): Promise<void> {
         try {
             const selectedPrompts = this.treeProvider.getSelectedPrompts();
-            
+
             if (selectedPrompts.length === 0) {
                 vscode.window.showInformationMessage('No active prompts to export');
                 return;

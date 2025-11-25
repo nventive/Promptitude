@@ -15,7 +15,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         private readonly promptTreeProvider: PromptTreeDataProvider
     ) {
         this.logger = Logger.get('PromptCardsWebview');
-        
+
         // Listen to tree provider changes and update webview
         this.promptTreeProvider.onDidChangeTreeData(() => {
             this.logger.debug('Tree data changed, updating webview');
@@ -42,21 +42,26 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(
             message => {
-                this.logger.debug(`Received message from webview: ${message.command}`);
+                this.logger.debug(`[WebView] Received message: ${JSON.stringify(message)}`);
                 switch (message.command) {
                     case 'refresh':
-                        this.logger.debug('Manual refresh requested from webview');
+                        this.logger.debug('[WebView] Manual refresh requested from webview');
                         this.refresh();
                         break;
                     case 'togglePrompt':
+                        this.logger.info(`[WebView] togglePrompt message received for: ${message.promptPath}`);
                         this.togglePrompt(message.promptPath);
                         break;
                     case 'viewPrompt':
+                        this.logger.debug(`[WebView] viewPrompt message received for: ${message.promptPath}`);
                         this.viewPrompt(message.promptPath);
                         break;
                     case 'openRepository':
+                        this.logger.debug(`[WebView] openRepository message received for: ${message.repositoryUrl}`);
                         this.openRepository(message.repositoryUrl);
                         break;
+                    default:
+                        this.logger.warn(`[WebView] Unknown message command: ${message.command}`);
                 }
             },
             undefined,
@@ -88,15 +93,40 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
     private async togglePrompt(promptPath: string) {
         try {
-            const promptInfo = this.promptTreeProvider.getAllPrompts().find(p => p.path === promptPath);
+            this.logger.info(`[WebView] togglePrompt called with path: ${promptPath}`);
+
+            // Normalize paths for cross-platform comparison (Windows uses backslashes)
+            const normalizedPromptPath = promptPath.replace(/\\/g, '/');
+            this.logger.debug(`[WebView] Normalized path: ${normalizedPromptPath}`);
+
+            const allPrompts = this.promptTreeProvider.getAllPrompts();
+            this.logger.debug(`[WebView] Total prompts available: ${allPrompts.length}`);
+
+            const promptInfo = allPrompts.find(p => {
+                const normalizedPath = p.path.replace(/\\/g, '/');
+                return normalizedPath === normalizedPromptPath;
+            });
+
             if (promptInfo) {
+                this.logger.info(`[WebView] Found prompt: ${promptInfo.name}, active: ${promptInfo.active}`);
+                this.logger.debug(`[WebView] Executing command: prompts.toggleSelection`);
+
                 // Use the command that handles symlink creation/removal
                 await vscode.commands.executeCommand('prompts.toggleSelection', promptInfo);
+
+                this.logger.debug(`[WebView] Command executed successfully, updating webview`);
+                // Update webview after successful toggle (command handles its own refresh)
                 this.updateWebview();
+            } else {
+                this.logger.warn(`[WebView] Prompt not found for path: ${promptPath}`);
+                this.logger.debug(`[WebView] Available paths: ${allPrompts.map(p => p.path).join(', ')}`);
+                vscode.window.showErrorMessage('Prompt not found');
             }
         } catch (error) {
-            this.logger.error('Failed to toggle prompt:', error as Error);
+            this.logger.error('[WebView] Failed to toggle prompt:', error as Error);
             vscode.window.showErrorMessage(`Failed to toggle prompt: ${error}`);
+            // Refresh to ensure UI shows correct state
+            this.updateWebview();
         }
     }
 
@@ -117,9 +147,9 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             if (!repositoryUrl) {
                 return;
             }
-            
+
             this.logger.info(`Opening repository in browser: ${repositoryUrl}`);
-            
+
             // Open the URL in the default browser
             await vscode.env.openExternal(vscode.Uri.parse(repositoryUrl));
         } catch (error) {
@@ -374,8 +404,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             border-radius: 10px;
         }
 
-        .category-section.chatmode .category-header {
-            border-bottom-color: var(--chatmode-color);
+        .category-section.agents .category-header {
+            border-bottom-color: var(--agents-color);
         }
 
         .category-section.instructions .category-header {
@@ -432,8 +462,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             opacity: 0.6;
         }
 
-        .prompt-card.chatmode.active::before {
-            background-color: var(--chatmode-color);
+        .prompt-card.agents.active::before {
+            background-color: var(--agents-color);
         }
 
         .prompt-card.instructions.active::before {
@@ -684,14 +714,14 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             
             const counts = {
                 all: allPrompts.length,
-                chatmode: allPrompts.filter(p => p.type === 'chatmode').length,
+                agents: allPrompts.filter(p => p.type === 'agents').length,
                 prompts: allPrompts.filter(p => p.type === 'prompts').length,
                 instructions: allPrompts.filter(p => p.type === 'instructions').length
             };
 
             const activeCounts = {
                 all: allPrompts.filter(p => p.active).length,
-                chatmode: allPrompts.filter(p => p.type === 'chatmode' && p.active).length,
+                agents: allPrompts.filter(p => p.type === 'agents' && p.active).length,
                 prompts: allPrompts.filter(p => p.type === 'prompts' && p.active).length,
                 instructions: allPrompts.filter(p => p.type === 'instructions' && p.active).length
             };
@@ -768,9 +798,9 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                     📋 All
                     <span class="filter-count">\${activeCounts.all}/\${counts.all}</span>
                 </button>
-                <button class="filter-btn \${currentFilter === 'chatmode' ? 'active' : ''}" onclick="setFilter('chatmode')">
-                    💬 Chatmode
-                    <span class="filter-count">\${activeCounts.chatmode}/\${counts.chatmode}</span>
+                <button class="filter-btn \${currentFilter === 'agents' ? 'active' : ''}" onclick="setFilter('agents')">
+                    🤖 Agents
+                    <span class="filter-count">\${activeCounts.agents}/\${counts.agents}</span>
                 </button>
                 <button class="filter-btn \${currentFilter === 'prompts' ? 'active' : ''}" onclick="setFilter('prompts')">
                     ⚡ Prompts
@@ -889,13 +919,13 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             // Group by category if showing all
             if (currentFilter === 'all') {
                 const grouped = {
-                    chatmode: prompts.filter(p => p.type === 'chatmode'),
+                    agents: prompts.filter(p => p.type === 'agents'),
                     prompts: prompts.filter(p => p.type === 'prompts'),
                     instructions: prompts.filter(p => p.type === 'instructions')
                 };
 
                 const categories = [
-                    { key: 'chatmode', title: 'Chatmode', icon: '💬', prompts: grouped.chatmode },
+                    { key: 'agents', title: 'Agents', icon: '🤖', prompts: grouped.agents },
                     { key: 'prompts', title: 'Prompts', icon: '⚡', prompts: grouped.prompts },
                     { key: 'instructions', title: 'Instructions', icon: '📖', prompts: grouped.instructions }
                 ];
@@ -924,15 +954,17 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         function renderPromptCard(prompt) {
             const typeIcon = getTypeIcon(prompt.type);
+            // Escape backslashes in paths for JavaScript strings (Windows compatibility)
+            const escapedPath = prompt.path.replace(/\\\\/g, '\\\\\\\\');
             return \`
-                <div class="prompt-card \${prompt.type} \${prompt.active ? 'active' : ''}" onclick="viewPrompt('\${prompt.path}')">
+                <div class="prompt-card \${prompt.type} \${prompt.active ? 'active' : ''}" onclick="viewPrompt('\${escapedPath}')">
                     <div class="card-header">
                         <h3 class="card-title">
                             <span class="type-icon">\${typeIcon}</span>
                             \${escapeHtml(cleanPromptName(prompt.name))}
                         </h3>
                         <div class="card-actions" onclick="event.stopPropagation()">
-                            <button class="action-btn \${prompt.active ? 'active-btn' : 'inactive-btn'}" onclick="togglePrompt('\${prompt.path}')" title="\${prompt.active ? 'Click to deactivate' : 'Click to activate'}">
+                            <button class="action-btn \${prompt.active ? 'active-btn' : 'inactive-btn'}" onclick="event.stopPropagation(); togglePrompt('\${escapedPath}'); return false;" title="\${prompt.active ? 'Click to deactivate' : 'Click to activate'}">
                                 \${prompt.active ? '✓ Activated' : '+ Activate'}
                             </button>
                         </div>
@@ -968,10 +1000,10 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         function cleanPromptName(filename) {
             // Remove common extensions: .prompt.md, .chatmode.md, .instructions.md, .md, .txt
             return filename
-                .replace(/\\.prompt\\.md$/, '')
-                .replace(/\\.chatmode\\.md$/, '')
-                .replace(/\\.instructions\\.md$/, '')
-                .replace(/\\.(md|txt)$/, '');
+                .replace(/\\\\.prompt\\\\.md$/, '')
+                .replace(/\\\\.chatmode\\\\.md$/, '')
+                .replace(/\\\\.instructions\\\\.md$/, '')
+                .replace(/\\\\.(md|txt)$/, '');
         }
 
         function getRepositoryName(repositoryUrl) {
@@ -1010,10 +1042,12 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         function togglePrompt(promptPath) {
+            console.log('[Promptitude WebView] togglePrompt called with:', promptPath);
             vscode.postMessage({
                 command: 'togglePrompt',
                 promptPath: promptPath
             });
+            console.log('[Promptitude WebView] Message posted to extension');
         }
 
         function viewPrompt(promptPath) {

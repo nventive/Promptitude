@@ -73,13 +73,13 @@
         "promptitude.syncChatmode": {
           "type": "boolean",
           "default": true,
-          "description": "Sync chatmodes",
+          "description": "Sync agent prompts (supports both agents/ and legacy chatmodes/ directories)",
           "order": 2
         },
         "promptitude.syncInstructions": {
           "type": "boolean",
-          "default": false,
-          "description": "Sync instructions",
+          "default": true,
+          "description": "Sync instruction prompts",
           "order": 3
         },
         "promptitude.syncPrompt": {

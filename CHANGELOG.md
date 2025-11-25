@@ -10,10 +10,7 @@ All notable changes to the "promptitude" extension will be documented in this fi
 
 ### Fixed
 
-- Improved prompt management UI with bug fixes and stability improvements
-- Fixed duplicate filename handling across multiple repositories
-- Enhanced cross-platform compatibility
-- Code quality improvements
+- Fixed UI bugs including Windows path handling, activate/deactivate button behavior, and cross-platform compatibility issues
 
 ## [1.5.0] - 2025-11-12
 

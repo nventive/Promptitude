@@ -446,7 +446,7 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 						// Update source if from repository
 						if (data.prompt.repositoryUrl) {
 							const repoName = extractRepositoryName(data.prompt.repositoryUrl);
-							promptSource.innerHTML = \`<a href="#" class="repo-link" data-url="\${data.prompt.repositoryUrl}" title="Open repository in browser">\${repoName} 🔗</a>\`;
+							promptSource.innerHTML = \`<a href="#" class="repo-link" data-url="\${data.prompt.repositoryUrl}" title="Open repository in browser">\${repoName}</a>\`;
 							
 							// Add click handler for the link
 							const repoLink = promptSource.querySelector('.repo-link');
