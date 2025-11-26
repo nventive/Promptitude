@@ -5,7 +5,7 @@ import * as os from 'os';
 import { ConfigManager } from '../configManager';
 import { FileSystemManager } from '../utils/fileSystem';
 import { Logger } from '../utils/logger';
-import { decodeRepositorySlug, encodeRepositorySlug } from '../storage/repositoryStorage';
+import { decodeRepositorySlug, encodeRepositorySlug, getRepositoryStorageDirectory } from '../storage/repositoryStorage';
 
 export interface PromptInfo {
     name: string; // Original filename from repository
@@ -276,7 +276,6 @@ export class PromptTreeDataProvider implements vscode.TreeDataProvider<PromptTre
 
             this.logger.debug(`Loaded ${workspaceCount} active prompts from workspace`);            // Load prompts from repository storage (these are all available prompts)
             await this.loadPromptsFromRepositoryStorage();
-
             this.logger.debug(`Total loaded: ${this.getTotalPromptCount()} prompts across ${this.prompts.size} categories`);
         } catch (error) {
             this.logger.error('Failed to load prompts', error instanceof Error ? error : undefined);
@@ -291,7 +290,7 @@ export class PromptTreeDataProvider implements vscode.TreeDataProvider<PromptTre
     private async loadPromptsFromRepositoryStorage(): Promise<void> {
         try {
             // Get repository storage directory from globalStorage
-            const repoStorageDir = this.getRepositoryStorageDirectory();
+            const repoStorageDir = getRepositoryStorageDirectory();
 
             if (!await this.fileSystem.directoryExists(repoStorageDir)) {
                 this.logger.debug(`Repository storage directory does not exist: ${repoStorageDir}`);
@@ -450,9 +449,7 @@ export class PromptTreeDataProvider implements vscode.TreeDataProvider<PromptTre
         // If this filename only appears once across all repos, use original name
         if (promptsWithSameName.length <= 1) {
             // Check repository storage to see if file exists in other repos
-            const promptsDir = this.config.getPromptsDirectory();
-            const parentDir = path.dirname(promptsDir);
-            const repoStorageDir = path.join(parentDir, 'repos');
+            const repoStorageDir = getRepositoryStorageDirectory();
 
             if (await this.fileSystem.directoryExists(repoStorageDir)) {
                 const repoDirs = await this.fileSystem.readDirectory(repoStorageDir);
@@ -748,65 +745,8 @@ export class PromptTreeDataProvider implements vscode.TreeDataProvider<PromptTre
         return allPrompts;
     }
 
-    /**
-     * Get the repository storage path for a given repository URL
-     */
-    /**
-     * Get the repository storage directory (in globalStorage)
-     */
-    private getRepositoryStorageDirectory(): string {
-        // Try to get from context's globalStorageUri first
-        if (this.config['context'] && this.config['context'].globalStorageUri) {
-            return path.join(this.config['context'].globalStorageUri.fsPath, 'repos');
-        }
-
-        // Fallback: use platform-specific globalStorage path
-        const extensionId = 'logientnventive.promptitude-extension';
-        let globalStoragePath: string;
-
-        switch (process.platform) {
-            case 'win32':
-                globalStoragePath = path.join(
-                    os.homedir(),
-                    'AppData',
-                    'Roaming',
-                    'Code',
-                    'User',
-                    'globalStorage',
-                    extensionId
-                );
-                break;
-            case 'darwin':
-                globalStoragePath = path.join(
-                    os.homedir(),
-                    'Library',
-                    'Application Support',
-                    'Code',
-                    'User',
-                    'globalStorage',
-                    extensionId
-                );
-                break;
-            case 'linux':
-                globalStoragePath = path.join(
-                    os.homedir(),
-                    '.config',
-                    'Code',
-                    'User',
-                    'globalStorage',
-                    extensionId
-                );
-                break;
-            default:
-                globalStoragePath = path.join(os.homedir(), '.vscode', 'globalStorage', extensionId);
-                break;
-        }
-
-        return path.join(globalStoragePath, 'repos');
-    }
-
     private getRepositoryPath(repositoryUrl: string): string {
-        const repoStorageDir = this.getRepositoryStorageDirectory();
+        const repoStorageDir = getRepositoryStorageDirectory();
         const slug = encodeRepositorySlug(repositoryUrl);
         return path.join(repoStorageDir, slug);
     }

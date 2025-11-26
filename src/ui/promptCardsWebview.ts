@@ -1000,10 +1000,10 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         function cleanPromptName(filename) {
             // Remove common extensions: .prompt.md, .chatmode.md, .instructions.md, .md, .txt
             return filename
-                .replace(/\\\\.prompt\\\\.md$/, '')
-                .replace(/\\\\.chatmode\\\\.md$/, '')
-                .replace(/\\\\.instructions\\\\.md$/, '')
-                .replace(/\\\\.(md|txt)$/, '');
+                .replace(/\\.prompt\\.md$/, '')
+                .replace(/\\.chatmode\\.md$/, '')
+                .replace(/\\.instructions\\.md$/, '')
+                .replace(/\\.(md|txt)$/, '');
         }
 
         function getRepositoryName(repositoryUrl) {

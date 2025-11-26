@@ -1,3 +1,6 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+import * as os from 'os';
 import { Logger } from '../utils/logger';
 
 const logger = Logger.get('RepositoryStorage');
@@ -30,4 +33,62 @@ export function decodeRepositorySlug(slug: string): string {
         logger.error(`Failed to decode repository slug: ${slug}`, error instanceof Error ? error : undefined);
         throw new Error(`Failed to decode repository slug: ${error}`);
     }
+}
+
+/**
+ * Get the repository storage directory path
+ * Repository storage should be in globalStorage, not in User/prompts
+ * This keeps downloaded repository files separate from active prompts
+ * @param context Optional extension context to use globalStorageUri (preferred)
+ * @returns The absolute path to the repository storage directory
+ */
+export function getRepositoryStorageDirectory(context?: vscode.ExtensionContext): string {
+    // Try to use context's globalStorageUri first (most reliable)
+    if (context?.globalStorageUri) {
+        return path.join(context.globalStorageUri.fsPath, 'repos');
+    }
+
+    // Fallback: use platform-specific globalStorage path
+    const extensionId = 'logientnventive.promptitude-extension';
+    let globalStoragePath: string;
+
+    switch (process.platform) {
+        case 'win32':
+            globalStoragePath = path.join(
+                os.homedir(),
+                'AppData',
+                'Roaming',
+                'Code',
+                'User',
+                'globalStorage',
+                extensionId
+            );
+            break;
+        case 'darwin':
+            globalStoragePath = path.join(
+                os.homedir(),
+                'Library',
+                'Application Support',
+                'Code',
+                'User',
+                'globalStorage',
+                extensionId
+            );
+            break;
+        case 'linux':
+            globalStoragePath = path.join(
+                os.homedir(),
+                '.config',
+                'Code',
+                'User',
+                'globalStorage',
+                extensionId
+            );
+            break;
+        default:
+            globalStoragePath = path.join(os.homedir(), '.vscode', 'globalStorage', extensionId);
+            break;
+    }
+
+    return path.join(globalStoragePath, 'repos');
 }

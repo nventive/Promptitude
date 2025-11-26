@@ -58,7 +58,7 @@ The Promptitude Extension automatically synchronizes the latest GitHub Copilot p
 | `promptitude.syncOnStartup`     | Sync when VS Code starts         | `true`                                                               | boolean |
 | `promptitude.showNotifications` | Show sync status notifications   | `true`                                                               | boolean |
 | `promptitude.syncChatmode`      | Sync agent prompts (supports both agents/ and legacy chatmodes/ directories) | `true`                                                               | boolean |
-| `promptitude.syncInstructions`  | Sync instructions prompts        | `false`                                                              | boolean |
+| `promptitude.syncInstructions`  | Sync instructions prompts        | `true`                                                               | boolean |
 | `promptitude.syncPrompt`        | Sync prompt files                | `true`                                                               | boolean |
 
 ### Sync Frequency Options

@@ -6,7 +6,7 @@ import { StatusBarManager, SyncStatus } from './statusBarManager';
 import { Logger } from './utils/logger';
 import { NotificationManager } from './utils/notifications';
 import { GitApiManager, GitTreeItem } from './utils/gitProvider';
-import { encodeRepositorySlug } from './storage/repositoryStorage';
+import { encodeRepositorySlug, getRepositoryStorageDirectory } from './storage/repositoryStorage';
 import { GitProviderFactory } from './utils/gitProviderFactory';
 import { FileSystemManager } from './utils/fileSystem';
 import { AzureDevOpsApiManager } from './utils/azureDevOps';
@@ -48,7 +48,7 @@ export class SyncManager {
     ) {
         this.notifications = new NotificationManager(this.config, undefined, this.logger);
         this.fileSystem = new FileSystemManager();
-        this.repoStorageDir = this.getRepositoryStorageDirectory();
+        this.repoStorageDir = getRepositoryStorageDirectory();
     }
 
     async initialize(context: vscode.ExtensionContext): Promise<void> {
@@ -56,6 +56,9 @@ export class SyncManager {
 
         // Update notification manager with extension context
         this.notifications = new NotificationManager(this.config, this.context, this.logger);
+
+        // Update repository storage directory with context (for more reliable path resolution)
+        this.repoStorageDir = getRepositoryStorageDirectory(this.context);
 
         this.logger.info('Initializing SyncManager...');
 
@@ -628,61 +631,6 @@ export class SyncManager {
     }
 
     /**
-     * Get the directory where repositories are stored locally (separate from active prompts)
-     */
-    private getRepositoryStorageDirectory(): string {
-        // Repository storage should be in globalStorage, not in User/prompts
-        // This keeps downloaded repository files separate from active prompts
-        if (this.context && this.context.globalStorageUri) {
-            return this.fileSystem.joinPath(this.context.globalStorageUri.fsPath, 'repos');
-        }
-
-        // Fallback: use platform-specific globalStorage path
-        let globalStoragePath: string;
-        const extensionId = 'logientnventive.promptitude-extension';
-
-        switch (process.platform) {
-            case 'win32':
-                globalStoragePath = path.join(
-                    os.homedir(),
-                    'AppData',
-                    'Roaming',
-                    'Code',
-                    'User',
-                    'globalStorage',
-                    extensionId
-                );
-                break;
-            case 'darwin':
-                globalStoragePath = path.join(
-                    os.homedir(),
-                    'Library',
-                    'Application Support',
-                    'Code',
-                    'User',
-                    'globalStorage',
-                    extensionId
-                );
-                break;
-            case 'linux':
-                globalStoragePath = path.join(
-                    os.homedir(),
-                    '.config',
-                    'Code',
-                    'User',
-                    'globalStorage',
-                    extensionId
-                );
-                break;
-            default:
-                globalStoragePath = path.join(os.homedir(), '.vscode', 'globalStorage', extensionId);
-                break;
-        }
-
-        return this.fileSystem.joinPath(globalStoragePath, 'repos');
-    }
-
-    /**
      * Migrate repository storage from old location (inside prompts dir) to new location (outside)
      */
     private async migrateRepositoryStorage(): Promise<void> {
@@ -1076,7 +1024,8 @@ export class SyncManager {
     }
 
     /**
-     * Update symlink for an active prompt if it exists in workspace
+     * Update symlink or file copy for an active prompt if it exists in workspace
+     * On Windows, handles both symlinks and regular file copies (fallback when symlinks aren't available)
      */
     private async updateActivePromptSymlink(fileName: string, repositoryUrl: string): Promise<void> {
         try {
@@ -1084,7 +1033,7 @@ export class SyncManager {
             const workspaceName = await this.getUniqueWorkspaceName(fileName, repositoryUrl);
             const workspacePath = this.fileSystem.joinPath(this.config.getPromptsDirectory(), workspaceName);
 
-            // Check if there's a symlink for this prompt in the workspace
+            // Check if there's a symlink or file for this prompt in the workspace
             if (await this.fileSystem.fileExists(workspacePath)) {
                 const fs = require('fs').promises;
                 const stats = await fs.lstat(workspacePath);
@@ -1099,6 +1048,16 @@ export class SyncManager {
                     await this.createPromptSymlink(newSourcePath, workspacePath);
 
                     this.logger.debug(`Updated symlink for active prompt: ${fileName} -> ${workspaceName}`);
+                } else if (process.platform === 'win32') {
+                    // On Windows, might be a file copy instead of symlink
+                    const repoPath = this.getRepositoryPath(repositoryUrl);
+                    const newSourcePath = this.fileSystem.joinPath(repoPath, fileName);
+
+                    // Copy the updated content
+                    const content = await fs.readFile(newSourcePath, 'utf8');
+                    await fs.writeFile(workspacePath, content, 'utf8');
+
+                    this.logger.debug(`Updated file copy for active prompt: ${fileName} -> ${workspaceName}`);
                 }
             }
         } catch (error) {
