@@ -40,7 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Initialize UI components first
     promptTreeProvider = new PromptTreeDataProvider(configManager);
-    promptDetailsProvider = new PromptDetailsWebviewProvider(context.extensionUri, configManager);
+    promptDetailsProvider = new PromptDetailsWebviewProvider(context.extensionUri, configManager, context);
     promptCardsProvider = new PromptCardsWebviewProvider(context.extensionUri, configManager, promptTreeProvider);
 
     // Initialize sync manager with tree provider access

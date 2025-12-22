@@ -11,6 +11,7 @@ All notable changes to the "promptitude" extension will be documented in this fi
 ### Fixed
 
 - Fixed UI bugs including Windows path handling, activate/deactivate button behavior, and cross-platform compatibility issues
+- Fixed prompt details view not opening for inactive prompts on Windows by correctly resolving repository storage paths
 
 ## [1.5.0] - 2025-11-12
 

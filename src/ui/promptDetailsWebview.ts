@@ -4,7 +4,7 @@ import { PromptInfo } from './promptTreeProvider';
 import { FileSystemManager } from '../utils/fileSystem';
 import { Logger } from '../utils/logger';
 import { ConfigManager } from '../configManager';
-import { encodeRepositorySlug } from '../storage/repositoryStorage';
+import { encodeRepositorySlug, getRepositoryStorageDirectory } from '../storage/repositoryStorage';
 
 export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'promptitude.details';
@@ -13,13 +13,16 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
     private _currentPrompt?: PromptInfo;
     private fileSystem: FileSystemManager;
     private logger: Logger;
+    private context?: vscode.ExtensionContext;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly config: ConfigManager
+        private readonly config: ConfigManager,
+        context?: vscode.ExtensionContext
     ) {
         this.fileSystem = new FileSystemManager();
         this.logger = Logger.get('PromptDetailsWebviewProvider');
+        this.context = context;
     }
 
     public resolveWebviewView(
@@ -76,9 +79,11 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
         }
 
         try {
+            this.logger.info(`showPrompt called for: ${prompt.name}, active: ${prompt.active}, repositoryUrl: ${prompt.repositoryUrl}`);
+            
             // Compute the actual file path
             const actualPath = this.getActualFilePath(prompt);
-            this.logger.debug(`Reading prompt from: ${actualPath}`);
+            this.logger.info(`Actual path resolved to: ${actualPath}`);
             
             const content = await this.fileSystem.readFileContent(actualPath);
             const metadata = await this.getPromptMetadata(prompt);
@@ -105,32 +110,47 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
     private getActualFilePath(prompt: PromptInfo): string {
         const fs = require('fs');
         
-        this.logger.debug(`Getting actual path - active: ${prompt.active}, repositoryUrl: ${prompt.repositoryUrl}, path: ${prompt.path}`);
+        this.logger.debug(`Getting actual path - active: ${prompt.active}, repositoryUrl: ${prompt.repositoryUrl}, path: ${prompt.path}, name: ${prompt.name}`);
         
-        // First, check if the workspace path exists (for active prompts)
-        if (fs.existsSync(prompt.path)) {
-            this.logger.debug(`File exists at workspace path: ${prompt.path}`);
-            return prompt.path;
-        }
-        
-        // If workspace path doesn't exist and we have a repository URL, try repository storage
-        if (prompt.repositoryUrl) {
-            // Get prompts directory and compute repository storage directory
-            const promptsDir = this.config.getPromptsDirectory();
-            const repoStorageDir = path.join(path.dirname(promptsDir), 'repos');
+        // For inactive prompts with a repository URL, go directly to repository storage
+        if (!prompt.active && prompt.repositoryUrl) {
+            // Get repository storage directory using the helper function
+            const repoStorageDir = getRepositoryStorageDirectory(this.context);
             
             // Encode repository URL using the same logic as SyncManager
             const encodedUrl = encodeRepositorySlug(prompt.repositoryUrl);
             
-            // Build path to repository storage
+            // Build path to repository storage using the original filename
             const repoStoragePath = path.join(repoStorageDir, encodedUrl, prompt.name);
             
+            this.logger.debug(`Repo storage dir: ${repoStorageDir}`);
+            this.logger.debug(`Encoded URL: ${encodedUrl}`);
+            this.logger.debug(`Looking for inactive prompt at repository storage: ${repoStoragePath}`);
+            
             if (fs.existsSync(repoStoragePath)) {
-                this.logger.debug(`File exists at repository storage: ${repoStoragePath}`);
+                this.logger.debug(`File found at repository storage: ${repoStoragePath}`);
                 return repoStoragePath;
             } else {
                 this.logger.warn(`File not found at repository storage: ${repoStoragePath}`);
+                // Try to list files in the encoded directory to help debug
+                const encodedDir = path.join(repoStorageDir, encodedUrl);
+                if (fs.existsSync(encodedDir)) {
+                    try {
+                        const files = fs.readdirSync(encodedDir);
+                        this.logger.debug(`Files in repository directory: ${files.join(', ')}`);
+                    } catch (err) {
+                        this.logger.debug(`Could not list files in repository directory: ${err}`);
+                    }
+                } else {
+                    this.logger.warn(`Repository directory does not exist: ${encodedDir}`);
+                }
             }
+        }
+        
+        // For active prompts or when repository lookup failed, check workspace path
+        if (fs.existsSync(prompt.path)) {
+            this.logger.debug(`File exists at workspace path: ${prompt.path}`);
+            return prompt.path;
         }
         
         // Fallback to the original path (will likely fail, but at least we tried)
