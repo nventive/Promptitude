@@ -192,12 +192,75 @@ export class PromptCommandManager {
         }
     }
 
-    private selectAll(): void {
+    private async selectAll(): Promise<void> {
         try {
-            this.treeProvider.selectAll();
-            const count = this.treeProvider.getSelectedPrompts().length;
-            vscode.window.showInformationMessage(`Activated ${count} prompts`);
-            this.logger.debug(`Activated all prompts (${count} total)`);
+            if (!this.syncManager) {
+                vscode.window.showErrorMessage('SyncManager not available');
+                return;
+            }
+
+            // Get all prompts that are currently inactive
+            const allPrompts = this.treeProvider.getAllPrompts();
+            const inactivePrompts = allPrompts.filter(p => !p.active);
+
+            if (inactivePrompts.length === 0) {
+                vscode.window.showInformationMessage('All prompts are already activated');
+                return;
+            }
+
+            // Use withProgress for proper loading indicator
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Activating ${inactivePrompts.length} prompts`,
+                cancellable: false
+            }, async (progress) => {
+                if (!this.syncManager) {
+                    throw new Error('SyncManager not available');
+                }
+
+                // Activate all inactive prompts by creating symlinks
+                let successCount = 0;
+                const errors: string[] = [];
+
+                for (let i = 0; i < inactivePrompts.length; i++) {
+                    const prompt = inactivePrompts[i];
+                    progress.report({ 
+                        increment: (100 / inactivePrompts.length),
+                        message: `${i + 1}/${inactivePrompts.length}: ${prompt.name}`
+                    });
+
+                    try {
+                        if (!prompt.repositoryUrl) {
+                            errors.push(`${prompt.name}: No repository URL`);
+                            continue;
+                        }
+
+                        const workspaceName = await this.syncManager.activatePrompt(prompt.name, prompt.repositoryUrl);
+                        prompt.workspaceName = workspaceName;
+                        prompt.active = true;
+                        successCount++;
+
+                        // Update details view if this prompt is currently being viewed
+                        this.webviewProvider.updateSelectionStatus(prompt);
+                    } catch (error) {
+                        const errorMsg = error instanceof Error ? error.message : String(error);
+                        errors.push(`${prompt.name}: ${errorMsg}`);
+                        this.logger.warn(`Failed to activate ${prompt.name}: ${errorMsg}`);
+                    }
+                }
+
+                this.treeProvider.refresh();
+
+                if (successCount === inactivePrompts.length) {
+                    vscode.window.showInformationMessage(`✅ Activated all ${successCount} prompts`);
+                } else if (successCount > 0) {
+                    vscode.window.showWarningMessage(`⚠️ Activated ${successCount}/${inactivePrompts.length} prompts. ${errors.length} failed.`);
+                } else {
+                    vscode.window.showErrorMessage(`❌ Failed to activate prompts: ${errors.join(', ')}`);
+                }
+
+                this.logger.debug(`Activated ${successCount}/${inactivePrompts.length} prompts`);
+            });
         } catch (error) {
             this.logger.error(`Failed to activate all prompts: ${error}`);
             vscode.window.showErrorMessage(`Failed to activate all prompts: ${error}`);
@@ -206,16 +269,67 @@ export class PromptCommandManager {
 
     private async deselectAll(): Promise<void> {
         try {
-            // Get all currently selected prompts before deselecting
-            const selected = [...this.treeProvider.getSelectedPrompts()];
-
-            // Deactivate each prompt using toggleSelection to ensure symlinks are removed
-            for (const prompt of selected) {
-                await this.toggleSelection(prompt);
+            if (!this.syncManager) {
+                vscode.window.showErrorMessage('SyncManager not available');
+                return;
             }
 
-            vscode.window.showInformationMessage('All prompts deactivated');
-            this.logger.debug('Deactivated all prompts');
+            // Get all currently selected prompts
+            const activePrompts = this.treeProvider.getSelectedPrompts();
+
+            if (activePrompts.length === 0) {
+                vscode.window.showInformationMessage('No prompts are currently activated');
+                return;
+            }
+
+            // Use withProgress for proper loading indicator
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Deactivating ${activePrompts.length} prompts`,
+                cancellable: false
+            }, async (progress) => {
+                if (!this.syncManager) {
+                    throw new Error('SyncManager not available');
+                }
+
+                // Deactivate all prompts efficiently by removing symlinks directly
+                let successCount = 0;
+                const errors: string[] = [];
+
+                for (let i = 0; i < activePrompts.length; i++) {
+                    const prompt = activePrompts[i];
+                    progress.report({ 
+                        increment: (100 / activePrompts.length),
+                        message: `${i + 1}/${activePrompts.length}: ${prompt.name}`
+                    });
+
+                    try {
+                        const nameToDeactivate = prompt.workspaceName || prompt.name;
+                        await this.syncManager.deactivatePrompt(nameToDeactivate);
+                        prompt.active = false;
+                        successCount++;
+
+                        // Update details view if this prompt is currently being viewed
+                        this.webviewProvider.updateSelectionStatus(prompt);
+                    } catch (error) {
+                        const errorMsg = error instanceof Error ? error.message : String(error);
+                        errors.push(`${prompt.name}: ${errorMsg}`);
+                        this.logger.warn(`Failed to deactivate ${prompt.name}: ${errorMsg}`);
+                    }
+                }
+
+                this.treeProvider.refresh();
+
+                if (successCount === activePrompts.length) {
+                    vscode.window.showInformationMessage(`✅ Deactivated all ${successCount} prompts`);
+                } else if (successCount > 0) {
+                    vscode.window.showWarningMessage(`⚠️ Deactivated ${successCount}/${activePrompts.length} prompts. ${errors.length} failed.`);
+                } else {
+                    vscode.window.showErrorMessage(`❌ Failed to deactivate prompts: ${errors.join(', ')}`);
+                }
+
+                this.logger.debug(`Deactivated ${successCount}/${activePrompts.length} prompts`);
+            });
         } catch (error) {
             this.logger.error(`Failed to deactivate all prompts: ${error}`);
             vscode.window.showErrorMessage(`Failed to deactivate all prompts: ${error}`);

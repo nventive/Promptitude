@@ -1079,13 +1079,13 @@ export class SyncManager {
 
         try {
             const repoPath = this.getRepositoryPath(repositoryUrl);
-            this.logger.debug(`Repository storage path: ${repoPath}`);
+            this.logger.info(`Repository storage path: ${repoPath}`);
 
             const sourcePath = this.fileSystem.joinPath(repoPath, promptPath);
-            this.logger.debug(`Source file path: ${sourcePath}`);
+            this.logger.info(`Source file path: ${sourcePath}`);
 
             const sourceExists = await this.fileSystem.fileExists(sourcePath);
-            this.logger.debug(`Source file exists: ${sourceExists}`);
+            this.logger.info(`Source file exists: ${sourceExists}`);
 
             if (!sourceExists) {
                 const errorMsg = `Source file does not exist: ${sourcePath}`;
@@ -1095,12 +1095,13 @@ export class SyncManager {
 
             // Generate unique workspace name if there are conflicts
             const workspaceName = await this.getUniqueWorkspaceName(promptPath, repositoryUrl);
-            this.logger.debug(`Workspace name: ${workspaceName}`);
+            this.logger.info(`Workspace name: ${workspaceName}`);
 
             // Create target path directly in User/prompts/ (no subdirectories)
             const promptsDir = this.config.getPromptsDirectory();
+            this.logger.info(`Prompts directory: ${promptsDir}`);
             const targetPath = this.fileSystem.joinPath(promptsDir, workspaceName);
-            this.logger.debug(`Target path: ${targetPath}`);
+            this.logger.info(`Target path: ${targetPath}`);
 
             await this.createPromptSymlink(sourcePath, targetPath);
             this.logger.info(`✅ Successfully activated prompt: ${promptPath} as ${workspaceName}`);
