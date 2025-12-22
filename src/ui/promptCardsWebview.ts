@@ -700,10 +700,17 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
             // Apply source filter (only if specific sources are enabled)
             if (enabledSources.size > 0) {
-                filteredPrompts = filteredPrompts.filter(prompt => {
-                    const sourceKey = prompt.repositoryUrl || 'local';
-                    return enabledSources.has(sourceKey);
-                });
+                // Check if the sentinel value is present (meaning no sources selected)
+                if (enabledSources.has('__none__')) {
+                    // No sources selected - show no prompts
+                    filteredPrompts = [];
+                } else {
+                    // Specific sources selected
+                    filteredPrompts = filteredPrompts.filter(prompt => {
+                        const sourceKey = prompt.repositoryUrl || 'local';
+                        return enabledSources.has(sourceKey);
+                    });
+                }
             }
 
             renderPrompts(filteredPrompts);
@@ -745,6 +752,9 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             // Build source dropdown items
             const sourceItems = [];
             
+            // Check if sentinel value is present (no sources selected)
+            const hasNoneSentinel = enabledSources.has('__none__');
+            
             // Add "All Sources" option
             sourceItems.push(\`
                 <div class="source-dropdown-item" onclick="toggleAllSources(event)">
@@ -762,7 +772,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
             // Add repository sources
             Array.from(sources.entries()).forEach(([url, data], index) => {
-                const isChecked = enabledSources.size === 0 || enabledSources.has(url);
+                const isChecked = (enabledSources.size === 0 && !hasNoneSentinel) || enabledSources.has(url);
                 const safeId = 'source-repo-' + index;
                 sourceItems.push(\`
                     <div class="source-dropdown-item" onclick="toggleSource('\${escapeHtml(url)}', event)">
@@ -777,7 +787,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
             // Add local prompts
             if (localCount > 0) {
-                const isChecked = enabledSources.size === 0 || enabledSources.has('local');
+                const isChecked = (enabledSources.size === 0 && !hasNoneSentinel) || enabledSources.has('local');
                 sourceItems.push(\`
                     <div class="source-dropdown-item" onclick="toggleSource('local', event)">
                         <input type="checkbox" id="source-local" \${isChecked ? 'checked' : ''} onchange="toggleSource('local', event)">
@@ -789,9 +799,9 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                 \`);
             }
 
-            const enabledCount = enabledSources.size === 0 ? sources.size + (localCount > 0 ? 1 : 0) : enabledSources.size;
+            const enabledCount = enabledSources.size === 0 ? sources.size + (localCount > 0 ? 1 : 0) : (hasNoneSentinel ? 0 : enabledSources.size);
             const totalSources = sources.size + (localCount > 0 ? 1 : 0);
-            const sourceFilterLabel = enabledSources.size === 0 ? 'All Sources' : \`\${enabledCount}/\${totalSources}\`;
+            const sourceFilterLabel = hasNoneSentinel ? 'None Selected' : (enabledSources.size === 0 ? 'All Sources' : \`\${enabledCount}/\${totalSources}\`);
 
             container.innerHTML = \`
                 <button class="filter-btn \${currentFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">
@@ -873,16 +883,34 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                     const key = p.repositoryUrl || 'local';
                     allSources.add(key);
                 });
-                allSources.forEach(key => {
-                    if (key !== sourceKey) {
-                        enabledSources.add(key);
-                    }
-                });
+                
+                // If there's only one source and it's being toggled off, allow it
+                if (allSources.size === 1) {
+                    // User wants to deselect the only source - use a sentinel value
+                    // to indicate "no sources selected" (different from "all sources")
+                    enabledSources.add('__none__');
+                } else {
+                    // Multiple sources - add all except the one being toggled off
+                    allSources.forEach(key => {
+                        if (key !== sourceKey) {
+                            enabledSources.add(key);
+                        }
+                    });
+                }
             } else {
                 // Some sources are filtered
                 if (enabledSources.has(sourceKey)) {
+                    // Deselecting a source
                     enabledSources.delete(sourceKey);
+                    
+                    // If we just deselected the last real source, add sentinel
+                    if (enabledSources.size === 0) {
+                        enabledSources.add('__none__');
+                    }
                 } else {
+                    // Selecting a source
+                    // Remove sentinel if present
+                    enabledSources.delete('__none__');
                     enabledSources.add(sourceKey);
                     
                     // Check if all sources are now enabled
