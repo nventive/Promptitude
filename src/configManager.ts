@@ -48,9 +48,26 @@ export class ConfigManager {
             .map(r => (r ?? '').trim())
             .filter(r => r.length > 0);
         const uniqueArray = Array.from(new Set(sanitized));
+        
+        // If duplicates were found, update the configuration to remove them.
         if (uniqueArray.length !== repository.length) {
-            vscode.window.showWarningMessage('Duplicate repository URLs found in configuration. Duplicates have been removed.');
+            this.logger.info(`Removing ${repository.length - uniqueArray.length} duplicate repository URL(s) from configuration`);
+            
+            // Update the configuration to persist the deduplicated list.
+            vscode.workspace.getConfiguration('promptitude')
+                .update('repositories', uniqueArray, vscode.ConfigurationTarget.Global)
+                .then(() => {
+                    vscode.window.showInformationMessage(
+                        `Removed ${repository.length - uniqueArray.length} duplicate repository URL(s) from configuration.`
+                    );
+                }, (error) => {
+                    this.logger.error('Failed to update repositories configuration', error);
+                    vscode.window.showWarningMessage(
+                        `Found ${repository.length - uniqueArray.length} duplicate repository URL(s) but failed to update configuration. Please remove duplicates manually.`
+                    );
+                });
         }
+        
         return uniqueArray;
     }
 

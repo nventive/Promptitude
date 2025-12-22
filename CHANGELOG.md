@@ -17,6 +17,7 @@ All notable changes to the "promptitude" extension will be documented in this fi
 - Fixed "Deactivate All" to efficiently remove all symlinks directly instead of looping through individual toggles, eliminating unnecessary counting behavior.
 - Fixed issue where prompts that were active before "Activate All" would be in a broken state after "Deactivate All".
 - Fixed prompt details view not refreshing when "Deactivate All" is clicked while viewing an active prompt.
+- Fixed duplicate repositories persisting in configuration by automatically removing them and updating settings when detected.
 
 ## [1.5.0] - 2025-11-12
 
