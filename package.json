@@ -78,8 +78,8 @@
         },
         "promptitude.syncInstructions": {
           "type": "boolean",
-          "default": true,
-          "description": "Sync instruction prompts",
+          "default": false,
+          "description": "Sync instructions",
           "order": 3
         },
         "promptitude.syncPrompt": {

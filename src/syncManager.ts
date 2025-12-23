@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as os from 'os';
 import { ConfigManager } from './configManager';
 import { StatusBarManager, SyncStatus } from './statusBarManager';
 import { Logger } from './utils/logger';
@@ -811,7 +810,7 @@ export class SyncManager {
             this.logger.debug(`Attempting to create symlink...`);
             // On Windows, use 'file' type; on Unix, type parameter is optional but 'file' works
             await fs.symlink(sourcePath, targetPath, 'file');
-            this.logger.info(`✅ Created symlink: ${sourcePath} -> ${targetPath}`);
+            this.logger.debug(`✅ Created symlink: ${sourcePath} -> ${targetPath}`);
         } catch (symlinkError: any) {
             this.logger.debug(`Symlink creation failed with code: ${symlinkError?.code}`);
             // Symlink creation failed (likely Windows without admin/dev mode)
@@ -855,11 +854,11 @@ export class SyncManager {
 
                 if (stats.isSymbolicLink()) {
                     await vscode.workspace.fs.delete(vscode.Uri.file(targetPath));
-                    this.logger.info(`✅ Removed symlink: ${targetPath}`);
+                    this.logger.debug(`✅ Removed symlink: ${targetPath}`);
                 } else if (process.platform === 'win32') {
                     // On Windows, we may have copied files instead of symlinks
                     await vscode.workspace.fs.delete(vscode.Uri.file(targetPath));
-                    this.logger.info(`✅ Removed file copy (Windows fallback): ${targetPath}`);
+                    this.logger.debug(`✅ Removed file copy (Windows fallback): ${targetPath}`);
                 } else {
                     this.logger.warn(`File exists but is not a symlink: ${targetPath}`);
                 }
@@ -972,7 +971,7 @@ export class SyncManager {
                                     await fs.unlink(fullPath);
                                     await this.createPromptSymlink(newSourcePath, fullPath);
                                     fixedCount++;
-                                    this.logger.info(`Fixed broken symlink: ${entry.name}`);
+                                    this.logger.debug(`Fixed broken symlink: ${entry.name}`);
                                 } else {
                                     this.logger.warn(`Cannot fix broken symlink ${entry.name}: source file not found at ${newSourcePath}`);
                                 }
@@ -1079,13 +1078,13 @@ export class SyncManager {
 
         try {
             const repoPath = this.getRepositoryPath(repositoryUrl);
-            this.logger.info(`Repository storage path: ${repoPath}`);
+            this.logger.debug(`Repository storage path: ${repoPath}`);
 
             const sourcePath = this.fileSystem.joinPath(repoPath, promptPath);
-            this.logger.info(`Source file path: ${sourcePath}`);
+            this.logger.debug(`Source file path: ${sourcePath}`);
 
             const sourceExists = await this.fileSystem.fileExists(sourcePath);
-            this.logger.info(`Source file exists: ${sourceExists}`);
+            this.logger.debug(`Source file exists: ${sourceExists}`);
 
             if (!sourceExists) {
                 const errorMsg = `Source file does not exist: ${sourcePath}`;
@@ -1095,13 +1094,13 @@ export class SyncManager {
 
             // Generate unique workspace name if there are conflicts
             const workspaceName = await this.getUniqueWorkspaceName(promptPath, repositoryUrl);
-            this.logger.info(`Workspace name: ${workspaceName}`);
+            this.logger.debug(`Workspace name: ${workspaceName}`);
 
             // Create target path directly in User/prompts/ (no subdirectories)
             const promptsDir = this.config.getPromptsDirectory();
-            this.logger.info(`Prompts directory: ${promptsDir}`);
+            this.logger.debug(`Prompts directory: ${promptsDir}`);
             const targetPath = this.fileSystem.joinPath(promptsDir, workspaceName);
-            this.logger.info(`Target path: ${targetPath}`);
+            this.logger.debug(`Target path: ${targetPath}`);
 
             await this.createPromptSymlink(sourcePath, targetPath);
             this.logger.info(`✅ Successfully activated prompt: ${promptPath} as ${workspaceName}`);
@@ -1121,24 +1120,6 @@ export class SyncManager {
     }
 
     /**
-     * Determine prompt type from filename
-     */
-    private determinePromptType(fileName: string): 'agents' | 'instructions' | 'prompts' {
-        const lowerName = fileName.toLowerCase();
-
-        // Support both 'agents' and legacy 'chatmode' naming
-        if (lowerName.includes('agent') || lowerName.includes('chatmode') || lowerName.includes('chat-mode')) {
-            return 'agents';
-        }
-
-        if (lowerName.includes('instruction') || lowerName.includes('guide')) {
-            return 'instructions';
-        }
-
-        return 'prompts';
-    }
-
-    /**
      * Deactivate a prompt by removing its symlink
      * @param promptPath The workspace filename (may include repository identifier)
      */
@@ -1154,7 +1135,9 @@ export class SyncManager {
             this.logger.error(`Failed to deactivate prompt: ${promptPath}`, error instanceof Error ? error : undefined);
             throw error;
         }
-    }    /**
+    }
+
+    /**
      * Clean up orphaned regular files in prompts directory that should be symlinks
      * Regular files that exist in repository storage should be removed from workspace
      */
@@ -1211,7 +1194,10 @@ export class SyncManager {
                         // On Windows, check if this is actually an active prompt (even if not a symlink)
                         if (process.platform === 'win32' && this.treeProvider) {
                             const allPrompts = this.treeProvider.getAllPrompts();
-                            const isActive = allPrompts.some(p => p.name === entry.name && p.active);
+                            // Check both p.name and p.workspaceName to handle disambiguated files (e.g., prompt@org-repo.md)
+                            const isActive = allPrompts.some(p => 
+                                (p.name === entry.name || p.workspaceName === entry.name) && p.active
+                            );
                             if (isActive) {
                                 this.logger.debug(`Keeping active Windows file copy: ${entry.name}`);
                                 continue;

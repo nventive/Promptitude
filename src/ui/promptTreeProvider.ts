@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as os from 'os';
 import { ConfigManager } from '../configManager';
 import { FileSystemManager } from '../utils/fileSystem';
 import { Logger } from '../utils/logger';
@@ -409,8 +408,14 @@ export class PromptTreeDataProvider implements vscode.TreeDataProvider<PromptTre
                         isActive = normalizedTarget === normalizedRepoPath;
                     } else if (process.platform === 'win32') {
                         // On Windows, it might be a file copy (fallback when symlinks aren't available)
-                        // Consider it active if the file exists in workspace and matches this repository
-                        isActive = true;
+                        // Verify content matches to ensure it's actually from this repository
+                        try {
+                            const workspaceContent = await this.fileSystem.readFileContent(workspacePath);
+                            isActive = workspaceContent === content;
+                        } catch (error) {
+                            this.logger.debug(`Failed to read workspace file for comparison: ${workspaceName}`);
+                            isActive = false;
+                        }
                     }
                 } catch (error) {
                     this.logger.debug(`Failed to check if prompt is active: ${workspaceName}`);
@@ -588,7 +593,7 @@ export class PromptTreeDataProvider implements vscode.TreeDataProvider<PromptTre
 
                         // If the file is in the prompts directory, check all repo storage for a matching file
                         if (normalizedFilePath.startsWith(normalizedPromptsDir)) {
-                            this.logger.debug(`Windows: Checking if ${fileName} is an active copy in prompts directory`);
+                            this.logger.debug(`Windows: File ${fileName} found in workspace prompts directory, checking against repository storage`);
                             // Note: This prompt is in the workspace directory
                             // It will be marked as active if we can find it in any repository storage
                             // The repository URL will remain undefined if not found

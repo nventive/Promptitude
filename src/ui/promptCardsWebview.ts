@@ -182,6 +182,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             --vscode-descriptionForeground: var(--vscode-descriptionForeground);
             
             /* Category colors */
+            --agents-color: #4CAF50;
             --chatmode-color: #4CAF50;
             --instructions-color: #2196F3;
             --prompts-color: #FF9800;
@@ -982,7 +983,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         function renderPromptCard(prompt) {
             const typeIcon = getTypeIcon(prompt.type);
-            // Escape backslashes in paths for JavaScript strings (Windows compatibility)
+            // Escape characters in paths for JavaScript single-quoted strings (Windows compatibility)
             const escapedPath = prompt.path.replace(/\\\\/g, '\\\\\\\\');
             return \`
                 <div class="prompt-card \${prompt.type} \${prompt.active ? 'active' : ''}" onclick="viewPrompt('\${escapedPath}')">
@@ -1012,7 +1013,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         function getTypeIcon(type) {
             switch(type) {
-                case 'chatmode': return '💬';
+                case 'agents': return '💬';
                 case 'instructions': return '📖';
                 case 'prompts': return '⚡';
                 default: return '📄';

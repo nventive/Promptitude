@@ -49,7 +49,11 @@ export function getRepositoryStorageDirectory(context?: vscode.ExtensionContext)
     }
 
     // Fallback: use platform-specific globalStorage path
-    const extensionId = 'logientnventive.promptitude-extension';
+    const packageJson = require('../../package.json') as { publisher?: string; name?: string };
+    const extensionId =
+        packageJson?.publisher && packageJson?.name
+            ? `${packageJson.publisher}.${packageJson.name}`
+            : 'logientnventive.promptitude-extension';
     let globalStoragePath: string;
 
     switch (process.platform) {

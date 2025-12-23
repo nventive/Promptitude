@@ -79,11 +79,11 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
         }
 
         try {
-            this.logger.info(`showPrompt called for: ${prompt.name}, active: ${prompt.active}, repositoryUrl: ${prompt.repositoryUrl}`);
+            this.logger.debug(`showPrompt called for: ${prompt.name}, active: ${prompt.active}, repositoryUrl: ${prompt.repositoryUrl}`);
             
             // Compute the actual file path
             const actualPath = this.getActualFilePath(prompt);
-            this.logger.info(`Actual path resolved to: ${actualPath}`);
+            this.logger.debug(`Actual path resolved to: ${actualPath}`);
             
             const content = await this.fileSystem.readFileContent(actualPath);
             const metadata = await this.getPromptMetadata(prompt);

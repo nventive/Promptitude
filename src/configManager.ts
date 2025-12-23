@@ -4,7 +4,6 @@ import { GitProvider } from './utils/gitProvider';
 import { Logger } from './utils/logger';
 import * as os from 'os';
 import * as path from 'path';
-import * as fs from 'fs';
 
 export interface SyncFrequency {
     startup: number;
@@ -61,7 +60,7 @@ export class ConfigManager {
                         `Removed ${repository.length - uniqueArray.length} duplicate repository URL(s) from configuration.`
                     );
                 }, (error) => {
-                    this.logger.error('Failed to update repositories configuration', error);
+                    this.logger.error('Failed to update repositories configuration', error instanceof Error ? error : undefined);
                     vscode.window.showWarningMessage(
                         `Found ${repository.length - uniqueArray.length} duplicate repository URL(s) but failed to update configuration. Please remove duplicates manually.`
                     );
