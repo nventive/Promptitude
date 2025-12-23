@@ -1,28 +1,13 @@
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background circle with gradient -->
-  <defs>
-    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#007ACC;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0E639C;stop-opacity:1" />
-    </linearGradient>
-  </defs>
+  <!-- Main chat bubble with "P" -->
+  <path d="M4 4 h12 a2 2 0 0 1 2 2 v8 a2 2 0 0 1 -2 2 h-6 l-4 4 v-4 h-2 a2 2 0 0 1 -2 -2 v-8 a2 2 0 0 1 2 -2 z" 
+        fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
   
-  <!-- Main background -->
-  <circle cx="12" cy="12" r="11" fill="url(#bg-gradient)" stroke="#FFFFFF" stroke-width="0.5"/>
+  <!-- Stylized "P" inside bubble -->
+  <path d="M7 8 h4 a2 2 0 0 1 2 2 v0 a2 2 0 0 1 -2 2 h-4 M7 8 v6" 
+        fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   
-  <!-- Prompt symbol - stylized "P" with chat bubble -->
-  <g transform="translate(6, 6)">
-    <!-- Chat bubble outline -->
-    <path d="M2 2 h8 a2 2 0 0 1 2 2 v4 a2 2 0 0 1 -2 2 h-3 l-2 2 v-2 h-3 a2 2 0 0 1 -2 -2 v-4 a2 2 0 0 1 2 -2 z" 
-          fill="none" stroke="#FFFFFF" stroke-width="1.2"/>
-    
-    <!-- Stylized "P" inside -->
-    <path d="M4 4 h3 a1.5 1.5 0 0 1 1.5 1.5 v0 a1.5 1.5 0 0 1 -1.5 1.5 h-3 M4 4 v5" 
-          fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/>
-  </g>
-  
-  <!-- Small dots indicating multiple prompts -->
-  <circle cx="18" cy="6" r="1.5" fill="#FFFFFF" opacity="0.8"/>
-  <circle cx="18" cy="10" r="1.2" fill="#FFFFFF" opacity="0.6"/>
-  <circle cx="18" cy="14" r="1" fill="#FFFFFF" opacity="0.4"/>
+  <!-- Small indicator dots -->
+  <circle cx="20" cy="4" r="1.5" fill="currentColor"/>
+  <circle cx="20" cy="8" r="1.5" fill="currentColor"/>
 </svg>

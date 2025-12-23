@@ -19,6 +19,7 @@ All notable changes to the "promptitude" extension will be documented in this fi
 - Fixed prompt details view not refreshing when "Deactivate All" is clicked while viewing an active prompt.
 - Fixed duplicate repositories persisting in configuration by automatically removing them and updating settings when detected.
 - Fixed 'All Sources' dropdown preventing users from deselecting the only repository source by implementing sentinel value pattern to distinguish between "all sources" and "no sources selected" states.
+- Fixed Activity Bar icon not displaying by converting SVG to monochrome format with currentColor support for proper theme adaptation.
 
 ## [1.5.0] - 2025-11-12
 
