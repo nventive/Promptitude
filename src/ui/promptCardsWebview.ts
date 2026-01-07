@@ -15,7 +15,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         private readonly promptTreeProvider: PromptTreeDataProvider
     ) {
         this.logger = Logger.get('PromptCardsWebview');
-        
+
         // Listen to tree provider changes and update webview
         this.promptTreeProvider.onDidChangeTreeData(() => {
             this.logger.debug('Tree data changed, updating webview');
@@ -42,21 +42,30 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(
             message => {
-                this.logger.debug(`Received message from webview: ${message.command}`);
+                this.logger.debug(`[WebView] Received message: ${JSON.stringify(message)}`);
                 switch (message.command) {
                     case 'refresh':
-                        this.logger.debug('Manual refresh requested from webview');
+                        this.logger.debug('[WebView] Manual refresh requested from webview');
                         this.refresh();
                         break;
                     case 'togglePrompt':
+                        this.logger.info(`[WebView] togglePrompt message received for: ${message.promptPath}`);
                         this.togglePrompt(message.promptPath);
                         break;
                     case 'viewPrompt':
+                        this.logger.debug(`[WebView] viewPrompt message received for: ${message.promptPath}`);
                         this.viewPrompt(message.promptPath);
                         break;
                     case 'openRepository':
+                        this.logger.debug(`[WebView] openRepository message received for: ${message.repositoryUrl}`);
                         this.openRepository(message.repositoryUrl);
                         break;
+                    case 'openLocalFolder':
+                        this.logger.debug(`[WebView] openLocalFolder message received`);
+                        this.openLocalFolder();
+                        break;
+                    default:
+                        this.logger.warn(`[WebView] Unknown message command: ${message.command}`);
                 }
             },
             undefined,
@@ -88,15 +97,40 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
     private async togglePrompt(promptPath: string) {
         try {
-            const promptInfo = this.promptTreeProvider.getAllPrompts().find(p => p.path === promptPath);
+            this.logger.info(`[WebView] togglePrompt called with path: ${promptPath}`);
+
+            // Normalize paths for cross-platform comparison (Windows uses backslashes)
+            const normalizedPromptPath = promptPath.replace(/\\/g, '/');
+            this.logger.debug(`[WebView] Normalized path: ${normalizedPromptPath}`);
+
+            const allPrompts = this.promptTreeProvider.getAllPrompts();
+            this.logger.debug(`[WebView] Total prompts available: ${allPrompts.length}`);
+
+            const promptInfo = allPrompts.find(p => {
+                const normalizedPath = p.path.replace(/\\/g, '/');
+                return normalizedPath === normalizedPromptPath;
+            });
+
             if (promptInfo) {
+                this.logger.info(`[WebView] Found prompt: ${promptInfo.name}, active: ${promptInfo.active}`);
+                this.logger.debug(`[WebView] Executing command: prompts.toggleSelection`);
+
                 // Use the command that handles symlink creation/removal
                 await vscode.commands.executeCommand('prompts.toggleSelection', promptInfo);
+
+                this.logger.debug(`[WebView] Command executed successfully, updating webview`);
+                // Update webview after successful toggle (command handles its own refresh)
                 this.updateWebview();
+            } else {
+                this.logger.warn(`[WebView] Prompt not found for path: ${promptPath}`);
+                this.logger.debug(`[WebView] Available paths: ${allPrompts.map(p => p.path).join(', ')}`);
+                vscode.window.showErrorMessage('Prompt not found');
             }
         } catch (error) {
-            this.logger.error('Failed to toggle prompt:', error as Error);
+            this.logger.error('[WebView] Failed to toggle prompt:', error as Error);
             vscode.window.showErrorMessage(`Failed to toggle prompt: ${error}`);
+            // Refresh to ensure UI shows correct state
+            this.updateWebview();
         }
     }
 
@@ -117,15 +151,20 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             if (!repositoryUrl) {
                 return;
             }
-            
+
             this.logger.info(`Opening repository in browser: ${repositoryUrl}`);
-            
+
             // Open the URL in the default browser
             await vscode.env.openExternal(vscode.Uri.parse(repositoryUrl));
         } catch (error) {
             this.logger.error('Failed to open repository:', error as Error);
             vscode.window.showErrorMessage(`Failed to open repository: ${error}`);
         }
+    }
+
+    private async openLocalFolder() {
+        // Reuse the existing command from syncManager
+        await vscode.commands.executeCommand('promptitude.openPromptsFolder');
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
@@ -152,7 +191,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             --vscode-descriptionForeground: var(--vscode-descriptionForeground);
             
             /* Category colors */
-            --chatmode-color: #4CAF50;
+            --agents-color: #4CAF50;
             --instructions-color: #2196F3;
             --prompts-color: #FF9800;
         }
@@ -374,8 +413,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             border-radius: 10px;
         }
 
-        .category-section.chatmode .category-header {
-            border-bottom-color: var(--chatmode-color);
+        .category-section.agents .category-header {
+            border-bottom-color: var(--agents-color);
         }
 
         .category-section.instructions .category-header {
@@ -432,8 +471,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             opacity: 0.6;
         }
 
-        .prompt-card.chatmode.active::before {
-            background-color: var(--chatmode-color);
+        .prompt-card.agents.active::before {
+            background-color: var(--agents-color);
         }
 
         .prompt-card.instructions.active::before {
@@ -540,8 +579,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         .action-btn.active-btn {
             background-color: rgba(var(--vscode-charts-green), 0.15);
-            color: var(--chatmode-color);
-            border: 1px solid var(--chatmode-color);
+            color: var(--agents-color);
+            border: 1px solid var(--agents-color);
         }
 
         .action-btn.active-btn:hover {
@@ -670,10 +709,17 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
             // Apply source filter (only if specific sources are enabled)
             if (enabledSources.size > 0) {
-                filteredPrompts = filteredPrompts.filter(prompt => {
-                    const sourceKey = prompt.repositoryUrl || 'local';
-                    return enabledSources.has(sourceKey);
-                });
+                // Check if the sentinel value is present (meaning no sources selected)
+                if (enabledSources.has('__none__')) {
+                    // No sources selected - show no prompts
+                    filteredPrompts = [];
+                } else {
+                    // Specific sources selected
+                    filteredPrompts = filteredPrompts.filter(prompt => {
+                        const sourceKey = prompt.repositoryUrl || 'local';
+                        return enabledSources.has(sourceKey);
+                    });
+                }
             }
 
             renderPrompts(filteredPrompts);
@@ -684,14 +730,14 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             
             const counts = {
                 all: allPrompts.length,
-                chatmode: allPrompts.filter(p => p.type === 'chatmode').length,
+                agents: allPrompts.filter(p => p.type === 'agents').length,
                 prompts: allPrompts.filter(p => p.type === 'prompts').length,
                 instructions: allPrompts.filter(p => p.type === 'instructions').length
             };
 
             const activeCounts = {
                 all: allPrompts.filter(p => p.active).length,
-                chatmode: allPrompts.filter(p => p.type === 'chatmode' && p.active).length,
+                agents: allPrompts.filter(p => p.type === 'agents' && p.active).length,
                 prompts: allPrompts.filter(p => p.type === 'prompts' && p.active).length,
                 instructions: allPrompts.filter(p => p.type === 'instructions' && p.active).length
             };
@@ -715,6 +761,9 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             // Build source dropdown items
             const sourceItems = [];
             
+            // Check if sentinel value is present (no sources selected)
+            const hasNoneSentinel = enabledSources.has('__none__');
+            
             // Add "All Sources" option
             sourceItems.push(\`
                 <div class="source-dropdown-item" onclick="toggleAllSources(event)">
@@ -732,7 +781,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
             // Add repository sources
             Array.from(sources.entries()).forEach(([url, data], index) => {
-                const isChecked = enabledSources.size === 0 || enabledSources.has(url);
+                const isChecked = (enabledSources.size === 0 && !hasNoneSentinel) || enabledSources.has(url);
                 const safeId = 'source-repo-' + index;
                 sourceItems.push(\`
                     <div class="source-dropdown-item" onclick="toggleSource('\${escapeHtml(url)}', event)">
@@ -747,7 +796,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
             // Add local prompts
             if (localCount > 0) {
-                const isChecked = enabledSources.size === 0 || enabledSources.has('local');
+                const isChecked = (enabledSources.size === 0 && !hasNoneSentinel) || enabledSources.has('local');
                 sourceItems.push(\`
                     <div class="source-dropdown-item" onclick="toggleSource('local', event)">
                         <input type="checkbox" id="source-local" \${isChecked ? 'checked' : ''} onchange="toggleSource('local', event)">
@@ -759,18 +808,18 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                 \`);
             }
 
-            const enabledCount = enabledSources.size === 0 ? sources.size + (localCount > 0 ? 1 : 0) : enabledSources.size;
+            const enabledCount = enabledSources.size === 0 ? sources.size + (localCount > 0 ? 1 : 0) : (hasNoneSentinel ? 0 : enabledSources.size);
             const totalSources = sources.size + (localCount > 0 ? 1 : 0);
-            const sourceFilterLabel = enabledSources.size === 0 ? 'All Sources' : \`\${enabledCount}/\${totalSources}\`;
+            const sourceFilterLabel = hasNoneSentinel ? 'None Selected' : (enabledSources.size === 0 ? 'All Sources' : \`\${enabledCount}/\${totalSources}\`);
 
             container.innerHTML = \`
                 <button class="filter-btn \${currentFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">
                     📋 All
                     <span class="filter-count">\${activeCounts.all}/\${counts.all}</span>
                 </button>
-                <button class="filter-btn \${currentFilter === 'chatmode' ? 'active' : ''}" onclick="setFilter('chatmode')">
-                    💬 Chatmode
-                    <span class="filter-count">\${activeCounts.chatmode}/\${counts.chatmode}</span>
+                <button class="filter-btn \${currentFilter === 'agents' ? 'active' : ''}" onclick="setFilter('agents')">
+                    🤖 Agents
+                    <span class="filter-count">\${activeCounts.agents}/\${counts.agents}</span>
                 </button>
                 <button class="filter-btn \${currentFilter === 'prompts' ? 'active' : ''}" onclick="setFilter('prompts')">
                     ⚡ Prompts
@@ -843,16 +892,34 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                     const key = p.repositoryUrl || 'local';
                     allSources.add(key);
                 });
-                allSources.forEach(key => {
-                    if (key !== sourceKey) {
-                        enabledSources.add(key);
-                    }
-                });
+                
+                // If there's only one source and it's being toggled off, allow it
+                if (allSources.size === 1) {
+                    // User wants to deselect the only source - use a sentinel value
+                    // to indicate "no sources selected" (different from "all sources")
+                    enabledSources.add('__none__');
+                } else {
+                    // Multiple sources - add all except the one being toggled off
+                    allSources.forEach(key => {
+                        if (key !== sourceKey) {
+                            enabledSources.add(key);
+                        }
+                    });
+                }
             } else {
                 // Some sources are filtered
                 if (enabledSources.has(sourceKey)) {
+                    // Deselecting a source
                     enabledSources.delete(sourceKey);
+                    
+                    // If we just deselected the last real source, add sentinel
+                    if (enabledSources.size === 0) {
+                        enabledSources.add('__none__');
+                    }
                 } else {
+                    // Selecting a source
+                    // Remove sentinel if present
+                    enabledSources.delete('__none__');
                     enabledSources.add(sourceKey);
                     
                     // Check if all sources are now enabled
@@ -889,13 +956,13 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             // Group by category if showing all
             if (currentFilter === 'all') {
                 const grouped = {
-                    chatmode: prompts.filter(p => p.type === 'chatmode'),
+                    agents: prompts.filter(p => p.type === 'agents'),
                     prompts: prompts.filter(p => p.type === 'prompts'),
                     instructions: prompts.filter(p => p.type === 'instructions')
                 };
 
                 const categories = [
-                    { key: 'chatmode', title: 'Chatmode', icon: '💬', prompts: grouped.chatmode },
+                    { key: 'agents', title: 'Agents', icon: '🤖', prompts: grouped.agents },
                     { key: 'prompts', title: 'Prompts', icon: '⚡', prompts: grouped.prompts },
                     { key: 'instructions', title: 'Instructions', icon: '📖', prompts: grouped.instructions }
                 ];
@@ -924,18 +991,22 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         function renderPromptCard(prompt) {
             const typeIcon = getTypeIcon(prompt.type);
+            // Escape characters in paths for JavaScript single-quoted strings (Windows compatibility)
+            const escapedPath = prompt.path.replace(/\\\\/g, '\\\\\\\\');
             return \`
-                <div class="prompt-card \${prompt.type} \${prompt.active ? 'active' : ''}" onclick="viewPrompt('\${prompt.path}')">
+                <div class="prompt-card \${prompt.type} \${prompt.active ? 'active' : ''}" onclick="viewPrompt('\${escapedPath}')">
                     <div class="card-header">
                         <h3 class="card-title">
                             <span class="type-icon">\${typeIcon}</span>
                             \${escapeHtml(cleanPromptName(prompt.name))}
                         </h3>
+                        \${prompt.repositoryUrl ? \`
                         <div class="card-actions" onclick="event.stopPropagation()">
-                            <button class="action-btn \${prompt.active ? 'active-btn' : 'inactive-btn'}" onclick="togglePrompt('\${prompt.path}')" title="\${prompt.active ? 'Click to deactivate' : 'Click to activate'}">
+                            <button class="action-btn \${prompt.active ? 'active-btn' : 'inactive-btn'}" onclick="event.stopPropagation(); togglePrompt('\${escapedPath}'); return false;" title="\${prompt.active ? 'Click to deactivate' : 'Click to activate'}">
                                 \${prompt.active ? '✓ Activated' : '+ Activate'}
                             </button>
                         </div>
+                        \` : ''}
                     </div>
                     <div class="card-description">
                         \${escapeHtml(prompt.description || 'No description available')}
@@ -943,7 +1014,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                     <div class="card-repository" onclick="event.stopPropagation()">
                         \${prompt.repositoryUrl ? 
                             \`📦 <a href="#" onclick="openRepository('\${escapeHtml(prompt.repositoryUrl)}'); return false;" title="Open repository in browser">\${escapeHtml(getRepositoryName(prompt.repositoryUrl))} 🔗</a>\` :
-                            \`📦 Local\`
+                            \`💻 <a href="#" onclick="openLocalFolder(); return false;" title="Open local prompts folder">Local</a>\`
                         }
                     </div>
                 </div>
@@ -952,7 +1023,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         function getTypeIcon(type) {
             switch(type) {
-                case 'chatmode': return '💬';
+                case 'agents': return '💬';
                 case 'instructions': return '📖';
                 case 'prompts': return '⚡';
                 default: return '📄';
@@ -1010,10 +1081,12 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
         }
 
         function togglePrompt(promptPath) {
+            console.log('[Promptitude WebView] togglePrompt called with:', promptPath);
             vscode.postMessage({
                 command: 'togglePrompt',
                 promptPath: promptPath
             });
+            console.log('[Promptitude WebView] Message posted to extension');
         }
 
         function viewPrompt(promptPath) {
@@ -1027,6 +1100,12 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({
                 command: 'openRepository',
                 repositoryUrl: repositoryUrl
+            });
+        }
+
+        function openLocalFolder() {
+            vscode.postMessage({
+                command: 'openLocalFolder'
             });
         }
 

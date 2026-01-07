@@ -7,13 +7,19 @@ All notable changes to the "promptitude" extension will be documented in this fi
 ### Changed
 
 - Renamed "chatmodes" to "agents" throughout the UI to align with VS Code's current terminology
+- Improved "Activate All" and "Deactivate All" operations to show progress notifications with individual prompt status.
 
 ### Fixed
 
-- Improved prompt management UI with bug fixes and stability improvements
-- Fixed duplicate filename handling across multiple repositories
-- Enhanced cross-platform compatibility
-- Code quality improvements
+- Fixed UI bugs including Windows path handling, activate/deactivate button behavior, and cross-platform compatibility issues
+- Fixed prompt details view not opening for inactive prompts on Windows by correctly resolving repository storage paths
+- Fixed "Activate All" to properly create symlinks for all prompts instead of just updating state.
+- Fixed "Deactivate All" to efficiently remove all symlinks directly instead of looping through individual toggles, eliminating unnecessary counting behavior.
+- Fixed issue where prompts that were active before "Activate All" would be in a broken state after "Deactivate All".
+- Fixed prompt details view not refreshing when "Deactivate All" is clicked while viewing an active prompt.
+- Fixed duplicate repositories persisting in configuration by automatically removing them and updating settings when detected.
+- Fixed 'All Sources' dropdown preventing users from deselecting the only repository source by implementing sentinel value pattern to distinguish between "all sources" and "no sources selected" states.
+- Fixed Activity Bar icon not displaying by converting SVG to monochrome format with currentColor support for proper theme adaptation.
 
 ## [1.5.0] - 2025-11-12
 

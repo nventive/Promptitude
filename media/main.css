@@ -69,6 +69,12 @@
 	text-transform: capitalize;
 }
 
+.type-badge.type-agents {
+	background: var(--vscode-charts-blue);
+	color: white;
+}
+
+/* Legacy support for chatmode class */
 .type-badge.type-chatmode {
 	background: var(--vscode-charts-blue);
 	color: white;

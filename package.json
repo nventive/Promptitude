@@ -2,7 +2,7 @@
   "name": "promptitude-extension",
   "displayName": "Promptitude",
   "description": "Sync GitHub Copilot prompts, chatmodes and instructions from git repositories",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "publisher": "logientnventive",
   "repository": {
     "type": "git",
@@ -73,7 +73,7 @@
         "promptitude.syncChatmode": {
           "type": "boolean",
           "default": true,
-          "description": "Sync chatmodes",
+          "description": "Sync agent prompts (supports both agents/ and legacy chatmodes/ directories)",
           "order": 2
         },
         "promptitude.syncInstructions": {

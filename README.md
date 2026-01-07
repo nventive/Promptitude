@@ -10,7 +10,7 @@ The Promptitude Extension automatically synchronizes the latest GitHub Copilot p
 
 - **🔄 Automatic Sync**: Configurable sync frequency (daily by default)
 - **📦 Multiple Repositories**: Support for syncing from multiple Git repositories simultaneously
-- **🌍 Cross-Platform**: Works on macOS, Windows, and Linux
+- **🌍 Cross-Platform**: Works on macOS, Windows, and Linux with intelligent symlink fallback
 - **⚙️ Configurable**: Customizable sync frequency and target directory
 - **🔐 Secure**: Uses your existing GitHub authentication from VS Code and secure PAT storage for Azure DevOps
 - **🌐 Multi-Provider**: Supports both GitHub and Azure DevOps repositories
@@ -18,6 +18,7 @@ The Promptitude Extension automatically synchronizes the latest GitHub Copilot p
 - **🎨 User-Friendly**: Simple setup with minimal configuration required
 - **📊 Status Indicators**: Clear feedback on sync status and last update time
 - **🛡️ Error Handling**: Graceful handling of repository conflicts and partial failures
+- **💻 Windows Compatibility**: Automatic fallback to file copies when symlinks aren't available (no admin rights needed)
 
 ## 🚀 Quick Start
 
@@ -56,8 +57,8 @@ The Promptitude Extension automatically synchronizes the latest GitHub Copilot p
 | `promptitude.repositories`      | Repositories with optional branch (use `url` or `url|branch`) | `[]`                                                                 | array   |
 | `promptitude.syncOnStartup`     | Sync when VS Code starts         | `true`                                                               | boolean |
 | `promptitude.showNotifications` | Show sync status notifications   | `true`                                                               | boolean |
-| `promptitude.syncChatmode`      | Sync chatmode prompts            | `true`                                                               | boolean |
-| `promptitude.syncInstructions`  | Sync instructions prompts        | `false`                                                              | boolean |
+| `promptitude.syncChatmode`      | Sync agent prompts (supports both agents/ and legacy chatmodes/ directories) | `true`                                                               | boolean |
+| `promptitude.syncInstructions`  | Sync instructions prompts        | `true`                                                               | boolean |
 | `promptitude.syncPrompt`        | Sync prompt files                | `true`                                                               | boolean |
 
 ### Sync Frequency Options
@@ -79,6 +80,23 @@ The extension automatically detects the correct prompts directory for your opera
 You can override this by setting a custom path in `promptitude.customPath`.
 
 The extension will adapt this path automatically to function with non-default VS Code profiles.
+
+### Platform-Specific Behavior
+
+#### Windows Symlink Handling
+
+On Windows, the extension intelligently handles file synchronization:
+
+- **With Developer Mode or Admin Rights**: Creates symlinks for optimal performance (files stay in sync automatically)
+- **Without Special Permissions**: Automatically falls back to copying files (no admin rights required)
+- Both approaches work seamlessly - the extension detects and manages active prompts correctly
+
+To enable symlinks on Windows 10/11 without admin rights:
+1. Go to Settings → Update & Security → For developers
+2. Enable "Developer Mode"
+3. Restart VS Code
+
+**Note**: File copy mode works perfectly fine for most users and requires no special setup.
 
 ### Multiple Repository Configuration
 
@@ -133,7 +151,8 @@ The extension adds a status bar item showing:
 The extension syncs all prompt files from the repository subdirectories into a flattened structure:
 
 ```
-chatmodes/*.md       → User/prompts/
+agents/*.md          → User/prompts/
+chatmodes/*.md       → User/prompts/ (legacy support)
 instructions/*.md   → User/prompts/
 prompts/*.md         → User/prompts/
 ```
