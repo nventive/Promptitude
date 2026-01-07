@@ -60,6 +60,10 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                         this.logger.debug(`[WebView] openRepository message received for: ${message.repositoryUrl}`);
                         this.openRepository(message.repositoryUrl);
                         break;
+                    case 'openLocalFolder':
+                        this.logger.debug(`[WebView] openLocalFolder message received`);
+                        this.openLocalFolder();
+                        break;
                     default:
                         this.logger.warn(`[WebView] Unknown message command: ${message.command}`);
                 }
@@ -156,6 +160,11 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             this.logger.error('Failed to open repository:', error as Error);
             vscode.window.showErrorMessage(`Failed to open repository: ${error}`);
         }
+    }
+
+    private async openLocalFolder() {
+        // Reuse the existing command from syncManager
+        await vscode.commands.executeCommand('promptitude.openPromptsFolder');
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
@@ -992,11 +1001,13 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                             <span class="type-icon">\${typeIcon}</span>
                             \${escapeHtml(cleanPromptName(prompt.name))}
                         </h3>
+                        \${prompt.repositoryUrl ? \`
                         <div class="card-actions" onclick="event.stopPropagation()">
                             <button class="action-btn \${prompt.active ? 'active-btn' : 'inactive-btn'}" onclick="event.stopPropagation(); togglePrompt('\${escapedPath}'); return false;" title="\${prompt.active ? 'Click to deactivate' : 'Click to activate'}">
                                 \${prompt.active ? '✓ Activated' : '+ Activate'}
                             </button>
                         </div>
+                        \` : ''}
                     </div>
                     <div class="card-description">
                         \${escapeHtml(prompt.description || 'No description available')}
@@ -1004,7 +1015,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                     <div class="card-repository" onclick="event.stopPropagation()">
                         \${prompt.repositoryUrl ? 
                             \`📦 <a href="#" onclick="openRepository('\${escapeHtml(prompt.repositoryUrl)}'); return false;" title="Open repository in browser">\${escapeHtml(getRepositoryName(prompt.repositoryUrl))} 🔗</a>\` :
-                            \`📦 Local\`
+                            \`💻 <a href="#" onclick="openLocalFolder(); return false;" title="Open local prompts folder">Local</a>\`
                         }
                     </div>
                 </div>
@@ -1090,6 +1101,12 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             vscode.postMessage({
                 command: 'openRepository',
                 repositoryUrl: repositoryUrl
+            });
+        }
+
+        function openLocalFolder() {
+            vscode.postMessage({
+                command: 'openLocalFolder'
             });
         }
 

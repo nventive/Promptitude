@@ -50,7 +50,7 @@ export class ConfigManager {
         
         // If duplicates were found, update the configuration to remove them.
         if (uniqueArray.length !== repository.length) {
-            this.logger.info(`Removing ${repository.length - uniqueArray.length} duplicate repository URL(s) from configuration`);
+            this.logger.debug(`Removing ${repository.length - uniqueArray.length} duplicate repository URL(s) from configuration`);
             
             // Update the configuration to persist the deduplicated list.
             vscode.workspace.getConfiguration('promptitude')
