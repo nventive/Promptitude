@@ -192,7 +192,6 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
             
             /* Category colors */
             --agents-color: #4CAF50;
-            --chatmode-color: #4CAF50;
             --instructions-color: #2196F3;
             --prompts-color: #FF9800;
         }
@@ -580,8 +579,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         .action-btn.active-btn {
             background-color: rgba(var(--vscode-charts-green), 0.15);
-            color: var(--chatmode-color);
-            border: 1px solid var(--chatmode-color);
+            color: var(--agents-color);
+            border: 1px solid var(--agents-color);
         }
 
         .action-btn.active-btn:hover {
