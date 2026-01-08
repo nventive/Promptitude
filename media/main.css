@@ -180,6 +180,16 @@
 	border-color: var(--vscode-charts-green);
 }
 
+.action-button.activate {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-color: var(--vscode-button-background);
+}
+
+.action-button.activate:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
 /* Codicon fallback styles */
 .action-button .icon {
 	font-size: 14px;

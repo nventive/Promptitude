@@ -393,10 +393,12 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 						if (active) {
 							icon.textContent = '✓';
 							toggleSelectionBtn.classList.add('selected');
+							toggleSelectionBtn.classList.remove('activate');
 							toggleSelectionBtn.title = 'Deactivate';
 						} else {
-							icon.textContent = '☐';
+							icon.textContent = '+';
 							toggleSelectionBtn.classList.remove('selected');
+							toggleSelectionBtn.classList.add('activate');
 							toggleSelectionBtn.title = 'Activate';
 						}
 					}
