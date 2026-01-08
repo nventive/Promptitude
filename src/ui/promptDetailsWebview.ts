@@ -325,7 +325,7 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 			</head>
 			<body>
 				<div id="container">
-					<div id="empty-state" class="empty-state">
+					<div id="empty-state" class="empty-state" style="display: block;">
 						<div class="empty-icon">📝</div>
 						<h2>No Prompt Selected</h2>
 						<p>Select a prompt from the tree view to view its details and content.</p>
@@ -346,41 +346,29 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 							</div>
 						</div>
 						
-							<div class="description-section" id="description-section" style="display: none;">
-								<div class="description-content" id="prompt-description"></div>
-							</div>
+						<div class="description-section" id="description-section" style="display: none;">
+							<div class="description-content" id="prompt-description"></div>
+						</div>
 
-							<div class="content-section">
-								<div class="section-header">
-									<h3>Content</h3>
-									<div class="content-actions">
-										<button id="save-content" class="action-button primary" style="display: none;">
-											<span class="icon">💾</span>
-											Save
-										</button>
-										<button id="reset-content" class="action-button" style="display: none;">
-											<span class="icon">↩️</span>
-											Reset
-										</button>
-									</div>
-								</div>
-								<textarea id="prompt-content" class="content-editor" placeholder="Prompt content will appear here..."></textarea>
-							</div>
+						<div class="content-section">
+							<div class="section-header">
+                                <h3>Content</h3>
+                            </div>
+							<textarea id="prompt-content" class="content-editor" placeholder="Prompt content will appear here..." readonly></textarea>
+						</div>
 
-							<div class="info-section" id="source-section" style="display: none;">
-								<div class="info-item">
-									<label>Source:</label>
-									<span id="prompt-source"></span>
-								</div>
+						<div class="info-section" id="source-section" style="display: none;">
+							<div class="info-item">
+								<label>Source:</label>
+								<span id="prompt-source"></span>
 							</div>
+						</div>
 					</div>
 				</div>
 
 				<script nonce="${nonce}">
 					const vscode = acquireVsCodeApi();
 					let currentPrompt = null;
-					let originalContent = '';
-					let hasUnsavedChanges = false;
 
 					// DOM elements
 					const emptyState = document.getElementById('empty-state');
@@ -394,58 +382,31 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 					const sourceSection = document.getElementById('source-section');
 					
 					const toggleSelectionBtn = document.getElementById('toggle-selection');
-					const saveContentBtn = document.getElementById('save-content');
-					const resetContentBtn = document.getElementById('reset-content');
 
 					// Event listeners
 					toggleSelectionBtn.addEventListener('click', () => {
 						vscode.postMessage({ type: 'toggleSelection' });
 					});
 
-					saveContentBtn.addEventListener('click', () => {
-						vscode.postMessage({ 
-							type: 'saveContent',
-							content: promptContent.value
-						});
-						hasUnsavedChanges = false;
-						updateSaveButtons();
-					});
-
-					resetContentBtn.addEventListener('click', () => {
-						promptContent.value = originalContent;
-						hasUnsavedChanges = false;
-						updateSaveButtons();
-					});
-
-					promptContent.addEventListener('input', () => {
-						hasUnsavedChanges = promptContent.value !== originalContent;
-						updateSaveButtons();
-					});
-
-					function updateSaveButtons() {
-						saveContentBtn.style.display = hasUnsavedChanges ? 'inline-flex' : 'none';
-						resetContentBtn.style.display = hasUnsavedChanges ? 'inline-flex' : 'none';
-					}
-
 					function updateSelectionButton(active) {
 						const icon = toggleSelectionBtn.querySelector('.icon');
 						if (active) {
 							icon.textContent = '✓';
 							toggleSelectionBtn.classList.add('selected');
+							toggleSelectionBtn.classList.remove('activate');
 							toggleSelectionBtn.title = 'Deactivate';
 						} else {
-							icon.textContent = '☐';
+							icon.textContent = '+';
 							toggleSelectionBtn.classList.remove('selected');
+							toggleSelectionBtn.classList.add('activate');
 							toggleSelectionBtn.title = 'Activate';
 						}
 					}
 
 					function showPrompt(data) {
-						currentPrompt = data.prompt;
-						originalContent = data.prompt.content;
-						
-						emptyState.style.display = 'none';
-						promptDetails.style.display = 'block';
+                        currentPrompt = data.prompt;
+                        emptyState.style.display = 'none';
+                        promptDetails.style.display = 'block';
 						
 						// Update header
 						promptTitle.textContent = data.prompt.name;
@@ -488,10 +449,6 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 						
 						// Update selection button
 						updateSelectionButton(data.prompt.active);
-						
-						// Reset save state
-						hasUnsavedChanges = false;
-						updateSaveButtons();
 					}
 
 					function extractRepositoryName(url) {
@@ -508,11 +465,8 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 
 					function clearPrompt() {
 						currentPrompt = null;
-						originalContent = '';
 						emptyState.style.display = 'block';
 						promptDetails.style.display = 'none';
-						hasUnsavedChanges = false;
-						updateSaveButtons();
 					}
 
 					// Handle messages from extension
@@ -537,6 +491,9 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 								break;
 						}
 					});
+
+					// Initialize with empty state on load
+					clearPrompt();
 				</script>
 			</body>
 			</html>`;
