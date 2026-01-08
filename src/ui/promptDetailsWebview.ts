@@ -346,23 +346,23 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 							</div>
 						</div>
 						
-							<div class="description-section" id="description-section" style="display: none;">
-								<div class="description-content" id="prompt-description"></div>
-							</div>
+						<div class="description-section" id="description-section" style="display: none;">
+							<div class="description-content" id="prompt-description"></div>
+						</div>
 
-							<div class="content-section">
-								<div class="section-header">
-									<h3>Content</h3>
-							</div>
+						<div class="content-section">
+							<div class="section-header">
+                                <h3>Content</h3>
+                            </div>
 							<textarea id="prompt-content" class="content-editor" placeholder="Prompt content will appear here..." readonly></textarea>
 						</div>
 
-						<div class="info-section" id="source-section">
-								<div class="info-item">
-									<label>Source:</label>
-									<span id="prompt-source"></span>
-								</div>
+						<div class="info-section" id="source-section" style="display: none;">
+							<div class="info-item">
+								<label>Source:</label>
+								<span id="prompt-source"></span>
 							</div>
+						</div>
 					</div>
 				</div>
 
@@ -404,9 +404,9 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 					}
 
 					function showPrompt(data) {
-						currentPrompt = data.prompt;
+                        currentPrompt = data.prompt;
                         emptyState.style.display = 'none';
-						promptDetails.style.display = 'block';
+                        promptDetails.style.display = 'block';
 						
 						// Update header
 						promptTitle.textContent = data.prompt.name;
@@ -465,11 +465,8 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 
 					function clearPrompt() {
 						currentPrompt = null;
-						originalContent = '';
 						emptyState.style.display = 'block';
 						promptDetails.style.display = 'none';
-						hasUnsavedChanges = false;
-						updateSaveButtons();
 					}
 
 					// Handle messages from extension
