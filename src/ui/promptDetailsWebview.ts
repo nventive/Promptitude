@@ -353,21 +353,11 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 							<div class="content-section">
 								<div class="section-header">
 									<h3>Content</h3>
-									<div class="content-actions">
-										<button id="save-content" class="action-button primary" style="display: none;">
-											<span class="icon">💾</span>
-											Save
-										</button>
-										<button id="reset-content" class="action-button" style="display: none;">
-											<span class="icon">↩️</span>
-											Reset
-										</button>
-									</div>
-								</div>
-								<textarea id="prompt-content" class="content-editor" placeholder="Prompt content will appear here..."></textarea>
 							</div>
+							<textarea id="prompt-content" class="content-editor" placeholder="Prompt content will appear here..." readonly></textarea>
+						</div>
 
-							<div class="info-section" id="source-section" style="display: none;">
+						<div class="info-section" id="source-section">
 								<div class="info-item">
 									<label>Source:</label>
 									<span id="prompt-source"></span>
@@ -379,8 +369,6 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 				<script nonce="${nonce}">
 					const vscode = acquireVsCodeApi();
 					let currentPrompt = null;
-					let originalContent = '';
-					let hasUnsavedChanges = false;
 
 					// DOM elements
 					const emptyState = document.getElementById('empty-state');
@@ -394,38 +382,11 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 					const sourceSection = document.getElementById('source-section');
 					
 					const toggleSelectionBtn = document.getElementById('toggle-selection');
-					const saveContentBtn = document.getElementById('save-content');
-					const resetContentBtn = document.getElementById('reset-content');
 
 					// Event listeners
 					toggleSelectionBtn.addEventListener('click', () => {
 						vscode.postMessage({ type: 'toggleSelection' });
 					});
-
-					saveContentBtn.addEventListener('click', () => {
-						vscode.postMessage({ 
-							type: 'saveContent',
-							content: promptContent.value
-						});
-						hasUnsavedChanges = false;
-						updateSaveButtons();
-					});
-
-					resetContentBtn.addEventListener('click', () => {
-						promptContent.value = originalContent;
-						hasUnsavedChanges = false;
-						updateSaveButtons();
-					});
-
-					promptContent.addEventListener('input', () => {
-						hasUnsavedChanges = promptContent.value !== originalContent;
-						updateSaveButtons();
-					});
-
-					function updateSaveButtons() {
-						saveContentBtn.style.display = hasUnsavedChanges ? 'inline-flex' : 'none';
-						resetContentBtn.style.display = hasUnsavedChanges ? 'inline-flex' : 'none';
-					}
 
 					function updateSelectionButton(active) {
 						const icon = toggleSelectionBtn.querySelector('.icon');
@@ -442,9 +403,7 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 
 					function showPrompt(data) {
 						currentPrompt = data.prompt;
-						originalContent = data.prompt.content;
-						
-						emptyState.style.display = 'none';
+                        emptyState.style.display = 'none';
 						promptDetails.style.display = 'block';
 						
 						// Update header
@@ -488,10 +447,6 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 						
 						// Update selection button
 						updateSelectionButton(data.prompt.active);
-						
-						// Reset save state
-						hasUnsavedChanges = false;
-						updateSaveButtons();
 					}
 
 					function extractRepositoryName(url) {
