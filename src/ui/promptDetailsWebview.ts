@@ -325,7 +325,7 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 			</head>
 			<body>
 				<div id="container">
-					<div id="empty-state" class="empty-state">
+					<div id="empty-state" class="empty-state" style="display: block;">
 						<div class="empty-icon">📝</div>
 						<h2>No Prompt Selected</h2>
 						<p>Select a prompt from the tree view to view its details and content.</p>
@@ -537,6 +537,9 @@ export class PromptDetailsWebviewProvider implements vscode.WebviewViewProvider 
 								break;
 						}
 					});
+
+					// Initialize with empty state on load
+					clearPrompt();
 				</script>
 			</body>
 			</html>`;
