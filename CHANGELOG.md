@@ -20,6 +20,10 @@ All notable changes to the "promptitude" extension will be documented in this fi
 - Fixed duplicate repositories persisting in configuration by automatically removing them and updating settings when detected.
 - Fixed 'All Sources' dropdown preventing users from deselecting the only repository source by implementing sentinel value pattern to distinguish between "all sources" and "no sources selected" states.
 - Fixed Activity Bar icon not displaying by converting SVG to monochrome format with currentColor support for proper theme adaptation.
+- Fixed prompt details webview initializing with visible empty state instead of hidden state on load.
+- Fixed prompt content textarea being editable instead of read-only in details view.
+- Fixed empty state remaining visible when prompt is selected in details view.
+- Fixed activate button styling in prompt details view to use blue color with plus icon for better visibility and consistency.
 
 ## [1.5.0] - 2025-11-12
 
