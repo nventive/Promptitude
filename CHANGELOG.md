@@ -4,6 +4,18 @@ All notable changes to the "promptitude" extension will be documented in this fi
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-01-08
+
+### Fixed
+
+- Fixed prompt details webview initializing with visible empty state instead of hidden state on load.
+- Fixed prompt content textarea being editable instead of read-only in details view.
+- Fixed empty state remaining visible when prompt is selected in details view.
+- Fixed activate button styling in prompt details view to use blue color with plus icon for better visibility and consistency.
+- Fixed marketplace icon not displaying on VS Code Extensions Marketplace by adding top-level icon property pointing to PNG file.
+
+## [1.5.2] - 2026-01-07
+
 ### Changed
 
 - Renamed "chatmodes" to "agents" throughout the UI to align with VS Code's current terminology
@@ -20,10 +32,6 @@ All notable changes to the "promptitude" extension will be documented in this fi
 - Fixed duplicate repositories persisting in configuration by automatically removing them and updating settings when detected.
 - Fixed 'All Sources' dropdown preventing users from deselecting the only repository source by implementing sentinel value pattern to distinguish between "all sources" and "no sources selected" states.
 - Fixed Activity Bar icon not displaying by converting SVG to monochrome format with currentColor support for proper theme adaptation.
-- Fixed prompt details webview initializing with visible empty state instead of hidden state on load.
-- Fixed prompt content textarea being editable instead of read-only in details view.
-- Fixed empty state remaining visible when prompt is selected in details view.
-- Fixed activate button styling in prompt details view to use blue color with plus icon for better visibility and consistency.
 
 ## [1.5.0] - 2025-11-12
 
