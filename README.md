@@ -54,10 +54,10 @@ The Promptitude Extension automatically synchronizes the latest GitHub Copilot p
 | `promptitude.enabled`           | Enable/disable automatic syncing | `true`                                                               | boolean |
 | `promptitude.frequency`         | Sync frequency                   | `"daily"`                                                            | string  |
 | `promptitude.customPath`        | Custom prompts directory path    | `""`                                                                 | string  |
-| `promptitude.repositories`      | Repositories with optional branch (use `url` or `url|branch`) | `[]`                                                                 | array   |
+| `promptitude.repositories`      | Repositories with optional branch (use `url` or `url\|branch`) | `[]`                                   | array   |
 | `promptitude.syncOnStartup`     | Sync when VS Code starts         | `true`                                                               | boolean |
 | `promptitude.showNotifications` | Show sync status notifications   | `true`                                                               | boolean |
-| `promptitude.syncChatmode`      | Sync agent prompts (supports both agents/ and legacy chatmodes/ directories) | `true`                                                               | boolean |
+| `promptitude.syncChatmode`      | Sync agent prompts (supports both agents/ and legacy chatmodes/ directories) | `true`                   | boolean |
 | `promptitude.syncInstructions`  | Sync instructions prompts        | `true`                                                               | boolean |
 | `promptitude.syncPrompt`        | Sync prompt files                | `true`                                                               | boolean |
 
