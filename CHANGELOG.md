@@ -4,6 +4,12 @@ All notable changes to the "promptitude" extension will be documented in this fi
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-01-12
+
+### Fixed
+
+- Fixed marketplace icon display issues by ensuring PNG icon meets VS Code Marketplace requirements (at least 128x128 pixels, transparency, proper padding).
+
 ## [1.5.3] - 2026-01-08
 
 ### Fixed
