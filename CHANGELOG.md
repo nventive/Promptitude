@@ -2,7 +2,11 @@
 
 All notable changes to the "promptitude" extension will be documented in this file.
 
-## [Unreleased]
+## [1.5.5] - 2026-03-18
+
+### Improved
+
+- Sync failure messages now distinguish **invalid repository URLs** (e.g. sub-paths like `/tree/main/...`) from **incompatible repository structures** (repo is reachable but has no supported prompt folders). The summary toast shows a categorised count, and "Show Details" lists the specific reason per repository.
 
 ## [1.5.4] - 2026-01-12
 

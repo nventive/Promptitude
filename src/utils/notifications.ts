@@ -47,7 +47,27 @@ export class NotificationManager {
     }
 
     async showPartialSyncSuccess(itemsCount: number, successCount: number, totalCount: number, errors: string[]): Promise<void> {
-        const message = `⚠️ Partial sync completed! ${itemsCount} items updated from ${successCount}/${totalCount} repositories.`;
+        // Categorise failures so the summary toast is immediately actionable
+        let badUrlCount = 0;
+        let badStructureCount = 0;
+        let otherCount = 0;
+        for (const err of errors) {
+            if (err.includes('Invalid URL')) {
+                badUrlCount++;
+            } else if (err.includes('Incompatible repository') || err.includes('No sync types enabled')) {
+                badStructureCount++;
+            } else {
+                otherCount++;
+            }
+        }
+
+        const failParts: string[] = [];
+        if (badUrlCount > 0) { failParts.push(`${badUrlCount} bad URL${badUrlCount > 1 ? 's' : ''}`); }
+        if (badStructureCount > 0) { failParts.push(`${badStructureCount} incompatible structure${badStructureCount > 1 ? 's' : ''}`); }
+        if (otherCount > 0) { failParts.push(`${otherCount} other error${otherCount > 1 ? 's' : ''}`); }
+
+        const failSummary = failParts.length > 0 ? ` Failures: ${failParts.join(', ')}.` : '';
+        const message = `⚠️ Partial sync: ${itemsCount} items updated from ${successCount}/${totalCount} repos.${failSummary}`;
         const result = await this.showWarning(
             message,
             'Show Details',
