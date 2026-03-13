@@ -182,4 +182,27 @@ export class NotificationManager {
             await this.showError(`Failed to setup Azure DevOps authentication: ${errorMessage}`);
         }
     }
+
+    /**
+     * Show a warning when the total instructions size or count exceeds safe thresholds.
+     * Instructions are auto-loaded into Copilot's context, unlike prompts which are on-demand.
+     */
+    async showPromptSizeWarning(details: { totalSizeKB: number; activeCount: number; reasons: string[] }): Promise<void> {
+        const reasonText = details.reasons.join('; ');
+        const message = `⚠️ Promptitude: Your active instructions may be too large for GitHub Copilot's context window (${details.totalSizeKB.toFixed(0)} KB across ${details.activeCount} instructions). ${reasonText}. Consider disabling unused instructions.`;
+
+        // Always show this warning regardless of notification settings — it's a safeguard
+        const result = await vscode.window.showWarningMessage(
+            message,
+            'Manage Prompts',
+            'Open Settings',
+            'Dismiss'
+        );
+
+        if (result === 'Manage Prompts') {
+            vscode.commands.executeCommand('promptitude.cards.focus');
+        } else if (result === 'Open Settings') {
+            vscode.commands.executeCommand('workbench.action.openSettings', 'promptitude');
+        }
+    }
 }

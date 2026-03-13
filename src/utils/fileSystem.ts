@@ -58,6 +58,10 @@ export class FileSystemManager {
         }
     }
 
+    async getFileSize(filePath: string): Promise<number> {
+        const stats = await stat(filePath);
+        return stats.size;
+    }
 
     joinPath(...paths: string[]): string {
         return path.join(...paths);
