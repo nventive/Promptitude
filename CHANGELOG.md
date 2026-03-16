@@ -2,6 +2,14 @@
 
 All notable changes to the "promptitude" extension will be documented in this file.
 
+## [1.5.7] - 2026-03-24
+
+### Fixed
+
+- Improved source filter dropdown to always display on its own full-width row, preventing layout shifts when toggling sources.
+- Added count badge (enabled/total) to the source dropdown button, matching the style of the other filter buttons.
+- Source dropdown label now shows "All Sources" when all selected and "Sources" when a subset is selected, for clearer context.
+
 ## [1.5.6] - 2026-03-23
 
 ### Added
