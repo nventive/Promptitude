@@ -325,6 +325,50 @@ export class SyncManager {
         }
     }
 
+    /**
+     * Validates that a repository URL is a well-formed repo root (not a sub-path like /tree/main/...).
+     * Returns an error string if invalid, or undefined if valid.
+     */
+    private validateRepositoryUrl(repoUrl: string): string | undefined {
+        try {
+            const parsed = new URL(repoUrl);
+            const normalizedPath = parsed.pathname.replace(/\.git$/, '').replace(/\/+$/, '');
+            const segments = normalizedPath.split('/').filter(Boolean);
+
+            // GitHub: expect exactly owner/repo (2 segments)
+            if (parsed.hostname === 'github.com' && segments.length < 2) {
+                return `Invalid URL – expected https://github.com/owner/repo but the path "${parsed.pathname}" is missing the owner and/or repo name`;
+            }
+            if (parsed.hostname === 'github.com' && segments.length > 2) {
+                return `Invalid URL – expected https://github.com/owner/repo but got extra sub-path segments in "${parsed.pathname}". Remove extra path segments like /tree/…`;
+            }
+
+            // Azure DevOps (dev.azure.com): expect org/project/_git/repo (4 segments)
+            if (parsed.hostname === 'dev.azure.com') {
+                if (segments.length < 4 || segments[2] !== '_git') {
+                    return `Invalid URL – expected https://dev.azure.com/org/project/_git/repo but the path "${parsed.pathname}" does not match the expected format`;
+                }
+                if (segments.length > 4) {
+                    return `Invalid URL – expected https://dev.azure.com/org/project/_git/repo but got extra sub-path segments in "${parsed.pathname}". Remove extra path segments`;
+                }
+            }
+
+            // Azure DevOps (visualstudio.com): expect project/_git/repo (3 segments)
+            if (parsed.hostname.endsWith('.visualstudio.com')) {
+                if (segments.length < 3 || segments[1] !== '_git') {
+                    return `Invalid URL – expected https://org.visualstudio.com/project/_git/repo but the path "${parsed.pathname}" does not match the expected format`;
+                }
+                if (segments.length > 3) {
+                    return `Invalid URL – expected https://org.visualstudio.com/project/_git/repo but got extra sub-path segments in "${parsed.pathname}". Remove extra path segments`;
+                }
+            }
+
+            return undefined;
+        } catch {
+            return `Invalid URL format – could not parse "${repoUrl}" as a repository URL`;
+        }
+    }
+
     private async syncMultipleRepositories(repositories: string[]): Promise<MultiRepositorySyncResult> {
         const results: RepositorySyncResult[] = [];
         let totalItemsUpdated = 0;
@@ -337,6 +381,20 @@ export class SyncManager {
             const branch = entry.branch;
             try {
                 this.logger.debug(`Syncing repository: ${repoUrl}`);
+
+                // Early validation: reject malformed repository URLs
+                const urlError = this.validateRepositoryUrl(repoUrl);
+                if (urlError) {
+                    this.logger.warn(`Skipping repository ${repoUrl}: ${urlError}`);
+                    results.push({
+                        repository: repoUrl,
+                        success: false,
+                        itemsUpdated: 0,
+                        error: urlError
+                    });
+                    errors.push(`${repoUrl}: ${urlError}`);
+                    continue;
+                }
 
                 // Get or create Git API manager for this repository
                 let gitApi = this.gitProviders.get(repoUrl);
@@ -379,14 +437,20 @@ export class SyncManager {
 
                 if (relevantFiles.length === 0) {
                     this.logger.warn(`No relevant files found to sync in ${repoUrl} based on current settings`);
-                    const promptLocation = `${REPO_SYNC_CHAT_MODE_PATH}, ${REPO_SYNC_CHAT_MODE_LEGACY_PATH}, ${REPO_SYNC_CHAT_MODE_LEGACY_SINGULAR_PATH}, ${REPO_SYNC_INSTRUCTIONS_PATH}, ${REPO_SYNC_PROMPT_PATH}`;
+                    const enabledTypes: string[] = [];
+                    if (this.config.syncChatmode) { enabledTypes.push(REPO_SYNC_CHAT_MODE_PATH); }
+                    if (this.config.syncInstructions) { enabledTypes.push(REPO_SYNC_INSTRUCTIONS_PATH); }
+                    if (this.config.syncPrompt) { enabledTypes.push(REPO_SYNC_PROMPT_PATH); }
+                    const structureError = enabledTypes.length > 0
+                        ? `Incompatible repository – no .md/.txt files found under ${enabledTypes.join(', ')} on branch "${branch}". Check that the repo uses a supported folder layout.`
+                        : `No sync types enabled – enable at least one of syncChatmode, syncInstructions, or syncPrompt in settings.`;
                     results.push({
                         repository: repoUrl,
                         success: false,
                         itemsUpdated: 0,
-                        error: `No relevant files found, make sure prompts are in valid directories: ${promptLocation}`
+                        error: structureError
                     });
-                    errors.push(`${repoUrl}: No relevant files found`);
+                    errors.push(`${repoUrl}: ${structureError}`);
                     continue;
                 }
                 this.logger.debug(`Found ${relevantFiles.length} relevant files to sync for ${repoUrl}`);
