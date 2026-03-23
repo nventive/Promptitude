@@ -10,7 +10,7 @@ import { GitProviderFactory } from './utils/gitProviderFactory';
 import { FileSystemManager } from './utils/fileSystem';
 import { AzureDevOpsApiManager } from './utils/azureDevOps';
 import { PromptTreeDataProvider } from './ui/promptTreeProvider';
-import { REPO_SYNC_CHAT_MODE_PATH, REPO_SYNC_CHAT_MODE_LEGACY_PATH, REPO_SYNC_CHAT_MODE_LEGACY_SINGULAR_PATH, REPO_SYNC_INSTRUCTIONS_PATH, REPO_SYNC_PROMPT_PATH, } from './constant';
+import { REPO_SYNC_CHAT_MODE_PATH, REPO_SYNC_CHAT_MODE_LEGACY_PATH, REPO_SYNC_CHAT_MODE_LEGACY_SINGULAR_PATH, REPO_SYNC_INSTRUCTIONS_PATH, REPO_SYNC_PROMPT_PATH, INSTRUCTION_SIZE_WARNING_THRESHOLD_BYTES, INSTRUCTION_COUNT_WARNING_THRESHOLD, } from './constant';
 export interface SyncResult {
     success: boolean;
     itemsUpdated: number;
@@ -102,11 +102,17 @@ export class SyncManager {
             // Recreate symlinks for active prompts (in case they were manually deleted)
             await this.recreateActivePromptSymlinks();
 
+            // Remove disabled prompts from the active prompts directory
+            await this.cleanupInactivePrompts();
+
             // Clean up orphaned regular files in prompts directory
             const cleanup = await this.cleanupOrphanedPrompts();
             if (cleanup.removed > 0) {
                 this.logger.info(`Cleaned up ${cleanup.removed} orphaned prompt files`);
             }
+
+            // Validate total instruction size to prevent Copilot context overflow
+            await this.validateInstructionSize();
 
             // Update status based on overall result
             if (result.overallSuccess) {
@@ -289,7 +295,8 @@ export class SyncManager {
                 }
 
                 const filePath = this.fileSystem.joinPath(promptsDir, fileName);
-                const matchingPrompt = allPrompts.find(prompt => prompt.name === fileName);
+                // Match on both prompt.name and prompt.workspaceName to handle disambiguated files (e.g., prompt@org-repo.md)
+                const matchingPrompt = allPrompts.find(prompt => prompt.name === fileName || prompt.workspaceName === fileName);
 
                 // Remove file if prompt exists but is not active
                 if (matchingPrompt && !matchingPrompt.active) {
@@ -1287,6 +1294,60 @@ export class SyncManager {
         } catch (error) {
             this.logger.error('Failed to cleanup orphaned prompts', error instanceof Error ? error : undefined);
             throw error;
+        }
+    }
+
+    /**
+     * Validate total instructions size and count, warning the user if thresholds are exceeded.
+     * Instructions (.instructions.md) are automatically loaded into Copilot's context window,
+     * unlike .prompt.md files which are invoked on-demand.
+     */
+    private async validateInstructionSize(): Promise<void> {
+        try {
+            const promptsDir = this.config.getPromptsDirectory();
+
+            // Ensure the prompts directory exists
+            await this.fileSystem.ensureDirectoryExists(promptsDir);
+
+            const entries = await this.fileSystem.readDirectory(promptsDir);
+            // Only count instructions files — they are auto-loaded into Copilot's context
+            const instructionFiles = entries.filter(f => f.endsWith('.instructions.md'));
+            const activeCount = instructionFiles.length;
+
+            // Calculate total size of active instruction files
+            let totalSize = 0;
+
+            for (const file of instructionFiles) {
+                try {
+                    const filePath = this.fileSystem.joinPath(promptsDir, file);
+                    totalSize += await this.fileSystem.getFileSize(filePath);
+                } catch {
+                    this.logger.debug(`Skipped unreadable instruction file: ${file}`);
+                }
+            }
+
+            const totalSizeKB = totalSize / 1024;
+            const reasons: string[] = [];
+
+            if (totalSize > INSTRUCTION_SIZE_WARNING_THRESHOLD_BYTES) {
+                reasons.push(`total size (${totalSizeKB.toFixed(0)} KB) exceeds ${(INSTRUCTION_SIZE_WARNING_THRESHOLD_BYTES / 1024).toFixed(0)} KB`);
+            }
+            if (activeCount > INSTRUCTION_COUNT_WARNING_THRESHOLD) {
+                reasons.push(`${activeCount} active instructions exceeds limit of ${INSTRUCTION_COUNT_WARNING_THRESHOLD}`);
+            }
+
+            if (reasons.length > 0) {
+                this.logger.warn(`Instructions size safeguard triggered: ${reasons.join('; ')}`);
+                await this.notifications.showPromptSizeWarning({
+                    totalSizeKB,
+                    activeCount,
+                    reasons
+                });
+            } else {
+                this.logger.debug(`Instructions size check passed: ${activeCount} instructions, ${totalSizeKB.toFixed(1)} KB`);
+            }
+        } catch (error) {
+            this.logger.error('Failed to validate prompt size', error instanceof Error ? error : undefined);
         }
     }
 

@@ -2,6 +2,13 @@
 
 All notable changes to the "promptitude" extension will be documented in this file.
 
+## [1.5.6] - 2026-03-23
+
+### Added
+
+- Instructions size safeguard: warns when active instructions (`.instructions.md`) may overwhelm GitHub Copilot's context window. Checks total instructions file size (>500 KB), active instructions count (>50), and repository count (>10) after each sync. Only instructions are counted since they are auto-loaded into context, unlike `.prompt.md` files which are invoked on-demand.
+- Disabled (inactive) prompts are now cleaned up from the active prompts directory during sync, preventing them from being loaded by Copilot.
+
 ## [1.5.5] - 2026-03-18
 
 ### Improved
