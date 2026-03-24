@@ -283,8 +283,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
         .source-filter-container {
             position: relative;
-            flex: 1;
-            min-width: fit-content;
+            flex-basis: 100%;
+            min-width: 0;
         }
 
         .source-dropdown-btn {
@@ -810,7 +810,8 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
 
             const enabledCount = enabledSources.size === 0 ? sources.size + (localCount > 0 ? 1 : 0) : (hasNoneSentinel ? 0 : enabledSources.size);
             const totalSources = sources.size + (localCount > 0 ? 1 : 0);
-            const sourceFilterLabel = hasNoneSentinel ? 'None Selected' : (enabledSources.size === 0 ? 'All Sources' : \`\${enabledCount}/\${totalSources}\`);
+            const sourceFilterLabel = hasNoneSentinel ? 'No Sources Selected' : (enabledSources.size === 0 ? 'All Sources' : 'Sources');
+            const sourceCountLabel = \`\${enabledCount}/\${totalSources}\`;
 
             container.innerHTML = \`
                 <button class="filter-btn \${currentFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">
@@ -832,7 +833,7 @@ export class PromptCardsWebviewProvider implements vscode.WebviewViewProvider {
                 \${totalSources > 0 ? \`
                 <div class="source-filter-container">
                     <button class="source-dropdown-btn \${dropdownOpen ? 'open' : ''}" onclick="toggleDropdown(event)">
-                        <span>📦 \${sourceFilterLabel}</span>
+                        <span>📦 \${sourceFilterLabel} <span class="filter-count">\${sourceCountLabel}</span></span>
                         <span class="dropdown-arrow">▼</span>
                     </button>
                     <div class="source-dropdown-menu \${dropdownOpen ? 'open' : ''}">
